@@ -6,6 +6,7 @@ import com.vslearn.dto.request.UserLoginDTO;
 import com.vslearn.dto.request.ChangePasswordDTO;
 import com.vslearn.dto.request.ForgotPasswordDTO;
 import com.vslearn.dto.request.ResetPasswordDTO;
+import com.vslearn.dto.request.VerifySignupOtpDTO;
 import com.vslearn.dto.response.ResponseData;
 import com.vslearn.service.UserService;
 import jakarta.validation.Valid;
@@ -28,6 +29,16 @@ public class UserController {
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody @Valid UserDataDTO userDataDTO) {
         return userService.signup(userDataDTO);
+    }
+
+    @PostMapping("/signup/request-otp")
+    public ResponseEntity<?> requestSignupOtp(@RequestParam String email) {
+        return userService.requestSignupOtp(email);
+    }
+
+    @PostMapping("/signup/verify-otp")
+    public ResponseEntity<?> verifySignupOtp(@RequestBody @Valid VerifySignupOtpDTO dto) {
+        return userService.verifySignupOtp(dto);
     }
 
     @PutMapping("/profile")

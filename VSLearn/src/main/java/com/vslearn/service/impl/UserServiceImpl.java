@@ -7,6 +7,7 @@ import com.vslearn.dto.request.UpdateProfileDTO;
 import com.vslearn.dto.request.ChangePasswordDTO;
 import com.vslearn.dto.request.ForgotPasswordDTO;
 import com.vslearn.dto.request.ResetPasswordDTO;
+import com.vslearn.dto.request.VerifySignupOtpDTO;
 import com.vslearn.dto.response.ProfileDTO;
 import com.vslearn.dto.response.ResponseData;
 import com.vslearn.entities.User;
@@ -86,6 +87,60 @@ public class UserServiceImpl implements UserService {
                 .status(HttpStatus.OK.value())
                 .message("Đăng kí thành công")
                 .data(jwtUtil.generateToken(newUser.getId().toString(), newUser.getUserEmail(), newUser.getUserRole()))
+                .build());
+    }
+
+    @Override
+    public ResponseEntity<?> requestSignupOtp(String email) {
+        if (userRepository.existsByUserEmail(email)) {
+            throw new AddingFailException("Email đã tồn tại", email);
+        }
+
+        String otp = randomUtils.getRandomActiveCodeNumber(6L);
+        
+        // Store OTP in a temporary user record
+        User tempUser = User.builder()
+                .userEmail(email)
+                .activeCode(otp)
+                .modifyTime(Instant.now().plusSeconds(300)) // OTP valid for 5 minutes
+                .isActive(false)
+                .build();
+        userRepository.save(tempUser);
+
+        if(!mailUtils.sentEmail(email, "Mã xác thực đăng ký tài khoản VSLearn", 
+            "Mã xác thực của bạn là: " + otp + "\nMã này có hiệu lực trong 5 phút.")) {
+            throw new AuthenticationFailException("Không thể gửi mã xác thực", email);
+        }
+
+        return ResponseEntity.ok(ResponseData.builder()
+                .status(HttpStatus.OK.value())
+                .message("Mã xác thực đã được gửi đến email của bạn")
+                .build());
+    }
+
+    @Override
+    public ResponseEntity<?> verifySignupOtp(VerifySignupOtpDTO dto) {
+        User tempUser = userRepository.findByUserEmail(dto.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu đăng ký với email: " + dto.getEmail()));
+
+        if (!tempUser.getActiveCode().equals(dto.getOtp())) {
+            throw new AuthenticationFailException("Mã xác thực không đúng", dto);
+        }
+
+        if (tempUser.getModifyTime().isBefore(Instant.now())) {
+            userRepository.delete(tempUser);
+            throw new AuthenticationFailException("Mã xác thực đã hết hạn", dto);
+        }
+
+        // Activate the user
+        tempUser.setIsActive(true);
+        tempUser.setActiveCode(null);
+        tempUser.setModifyTime(null);
+        userRepository.save(tempUser);
+
+        return ResponseEntity.ok(ResponseData.builder()
+                .status(HttpStatus.OK.value())
+                .message("Xác thực email thành công")
                 .build());
     }
 
