@@ -1,12 +1,10 @@
 package com.vslearn.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
 
@@ -16,25 +14,26 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic")
-public class Topic {
+@Table(name = "user_answers", indexes = {
+        @Index(name = "users_id", columnList = "users_id"),
+        @Index(name = "option_answers_id", columnList = "option_answers_id")
+})
+public class UserAnswer {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
-    @Size(max = 255)
     @NotNull
-    @Column(name = "topic_name", nullable = false)
-    private String topicName;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "users_id", nullable = false)
+    private User users;
 
     @NotNull
-    @Column(name = "is_free", nullable = false)
-    private Boolean isFree = false;
-
-    @Size(max = 255)
-    @NotNull
-    @Column(name = "status", nullable = false)
-    private String status;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "option_answers_id", nullable = false)
+    private OptionAnswer optionAnswers;
 
     @NotNull
     @Column(name = "created_at", nullable = false)

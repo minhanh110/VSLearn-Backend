@@ -14,11 +14,11 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic_point", indexes = {
-        @Index(name = "topic_id", columnList = "topic_id"),
-        @Index(name = "create_by", columnList = "create_by")
+@Table(name = "sentence_vocab", indexes = {
+        @Index(name = "sentence_id", columnList = "sentence_id"),
+        @Index(name = "vocab_id", columnList = "vocab_id")
 })
-public class TopicPoint {
+public class SentenceVocab {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
@@ -26,27 +26,31 @@ public class TopicPoint {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "topic_id", nullable = false)
-    private Topic topic;
+    @JoinColumn(name = "sentence_id", nullable = false)
+    private Sentence sentence;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "create_by", nullable = false)
-    private User createBy;
+    @JoinColumn(name = "vocab_id", nullable = false)
+    private Vocab vocab;
 
-    @NotNull
-    @Column(name = "total_point", nullable = false)
-    private Double totalPoint;
-
-    @NotNull
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at")
     private Instant createdAt;
+
+    @Column(name = "created_by", columnDefinition = "int UNSIGNED")
+    private Long createdBy;
 
     @Column(name = "updated_at")
     private Instant updatedAt;
 
     @Column(name = "updated_by", columnDefinition = "int UNSIGNED")
     private Long updatedBy;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
+    private Long deletedBy;
 
 }

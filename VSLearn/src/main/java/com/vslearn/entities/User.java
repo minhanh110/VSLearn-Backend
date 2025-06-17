@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 
@@ -40,8 +41,7 @@ public class User {
     private String userName;
 
     @Size(max = 255)
-    @NotNull
-    @Column(name = "user_password", nullable = false)
+    @Column(name = "user_password")
     private String userPassword;
 
     @Size(max = 255)
@@ -62,16 +62,20 @@ public class User {
     @Column(name = "user_role", nullable = false)
     private String userRole;
 
-    @NotNull
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = false;
+    @Size(max = 20)
+    @ColumnDefault("'LOCAL'")
+    @Column(name = "provider", length = 20)
+    private String provider;
 
-    @Size(max = 10)
-    @Column(name = "active_code", nullable = false, length = 10)
-    private String activeCode;
+    @Column(name = "is_active")
+    private Boolean isActive;
 
     @Column(name = "modify_time")
     private Instant modifyTime;
+
+    @Size(max = 10)
+    @Column(name = "active_code", length = 10)
+    private String activeCode;
 
     @NotNull
     @Column(name = "created_at", nullable = false)

@@ -1,6 +1,8 @@
 package com.vslearn.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -13,26 +15,29 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "vocabArea", indexes = {
+@Table(name = "vocab_area", indexes = {
         @Index(name = "vocab_id", columnList = "vocab_id"),
         @Index(name = "area_id", columnList = "area_id")
 })
 public class VocabArea {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "vocab_id", nullable = false)
     private Vocab vocab;
 
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "area_id", nullable = false)
     private Area area;
 
+    @Size(max = 255)
+    @NotNull
     @Column(name = "vocab_area_gif", nullable = false)
     private String vocabAreaGif;
 
@@ -40,6 +45,7 @@ public class VocabArea {
     @Column(name = "vocab_area_description")
     private String vocabAreaDescription;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

@@ -16,31 +16,21 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic")
-public class Topic {
+@Table(name = "word")
+public class Word {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
     @Size(max = 255)
     @NotNull
-    @Column(name = "topic_name", nullable = false)
-    private String topicName;
+    @Column(name = "word", nullable = false)
+    private String word;
 
-    @NotNull
-    @Column(name = "is_free", nullable = false)
-    private Boolean isFree = false;
-
-    @Size(max = 255)
-    @NotNull
-    @Column(name = "status", nullable = false)
-    private String status;
-
-    @NotNull
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at")
     private Instant createdAt;
 
-    @Column(name = "created_by", columnDefinition = "int UNSIGNED not null")
+    @Column(name = "created_by", columnDefinition = "int UNSIGNED")
     private Long createdBy;
 
     @Column(name = "updated_at")
