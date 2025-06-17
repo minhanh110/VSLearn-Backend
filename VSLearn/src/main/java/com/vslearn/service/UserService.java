@@ -19,4 +19,5 @@ public interface UserService {
     ResponseEntity<?> changePassword(String authHeader, ChangePasswordDTO dto);
     ResponseEntity<?> requestPasswordReset(ForgotPasswordDTO dto);
     ResponseEntity<?> verifyOtpAndResetPassword(ResetPasswordDTO dto);
+    ResponseEntity<?> handleOAuth2Login(String email, String name);
 }

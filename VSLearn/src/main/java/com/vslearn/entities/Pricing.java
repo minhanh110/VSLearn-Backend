@@ -16,25 +16,22 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic")
-public class Topic {
+@Table(name = "pricing")
+public class Pricing {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
     @Size(max = 255)
     @NotNull
-    @Column(name = "topic_name", nullable = false)
-    private String topicName;
+    @Column(name = "pricing_type", nullable = false)
+    private String pricingType;
 
-    @NotNull
-    @Column(name = "is_free", nullable = false)
-    private Boolean isFree = false;
+    @Column(name = "price", columnDefinition = "int UNSIGNED not null")
+    private Long price;
 
-    @Size(max = 255)
-    @NotNull
-    @Column(name = "status", nullable = false)
-    private String status;
+    @Column(name = "duration_days", columnDefinition = "int UNSIGNED not null")
+    private Long durationDays;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -51,8 +48,13 @@ public class Topic {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
-
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+/*
+ TODO [Reverse Engineering] create field to map the 'discount_percent' column
+ Available actions: Define target Java type | Uncomment as is | Remove column mapping
+    @Column(name = "discount_percent", columnDefinition = "double UNSIGNED not null")
+    private Object discountPercent;
+*/
 }

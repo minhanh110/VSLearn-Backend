@@ -1,6 +1,11 @@
 package com.vslearn.entities;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.Instant;
@@ -14,13 +19,15 @@ import java.time.Instant;
 @Table(name = "areas")
 public class Area {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
+    @Size(max = 255)
+    @NotNull
     @Column(name = "area_name", nullable = false)
     private String areaName;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

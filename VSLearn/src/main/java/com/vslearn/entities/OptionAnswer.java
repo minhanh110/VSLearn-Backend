@@ -1,12 +1,11 @@
 package com.vslearn.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
 
@@ -16,25 +15,27 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic")
-public class Topic {
+@Table(name = "option_answers", indexes = {
+        @Index(name = "test_question_id", columnList = "test_question_id")
+})
+public class OptionAnswer {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
-    @Size(max = 255)
     @NotNull
-    @Column(name = "topic_name", nullable = false)
-    private String topicName;
-
-    @NotNull
-    @Column(name = "is_free", nullable = false)
-    private Boolean isFree = false;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "test_question_id", nullable = false)
+    private TestQuestion testQuestion;
 
     @Size(max = 255)
+    @Column(name = "type_content")
+    private String typeContent;
+
     @NotNull
-    @Column(name = "status", nullable = false)
-    private String status;
+    @Column(name = "is_correct", nullable = false)
+    private Boolean isCorrect = false;
 
     @NotNull
     @Column(name = "created_at", nullable = false)

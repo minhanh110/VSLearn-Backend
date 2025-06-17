@@ -1,6 +1,8 @@
 package com.vslearn.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -21,9 +23,12 @@ public class Vocab {
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
+    @Size(max = 255)
+    @NotNull
     @Column(name = "vocab", nullable = false)
     private String vocab;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

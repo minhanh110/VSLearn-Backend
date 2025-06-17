@@ -24,11 +24,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Random;
 
 @Service
+@Component
 public class UserServiceImpl implements UserService {
 
     @Autowired
@@ -270,6 +272,33 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
                 .message("Password has been reset successfully")
+                .build());
+    }
+
+    @Override
+    public ResponseEntity<?> handleOAuth2Login(String email, String name) {
+        User user = userRepository.findByUserEmail(email)
+                .orElseGet(() -> {
+                    // Tạo user mới nếu chưa tồn tại
+                    User newUser = User.builder()
+                        .userEmail(email)
+                        .userName(email.split("@")[0]) // Tạo username từ email
+                        .firstName(name)
+                        .lastName("")
+                        .userRole("ROLE_LEARNER")
+                        .isActive(true)
+                        .createdAt(Instant.now())
+                        .updatedAt(Instant.now())
+                        .provider("GOOGLE")
+                        .build();
+                    return userRepository.save(newUser);
+                });
+
+        // Tạo JWT token và trả về
+        return ResponseEntity.ok(ResponseData.builder()
+                .status(HttpStatus.OK.value())
+                .message("Đăng nhập thành công")
+                .data(jwtUtil.generateToken(user.getId()+"", user.getUserEmail(), user.getUserRole()))
                 .build());
     }
 
