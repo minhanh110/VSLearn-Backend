@@ -27,6 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -63,51 +65,84 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<?> signup(UserDataDTO dto) {
+        // Check if username exists
         if (userRepository.existsByUserName(dto.getUsername())) {
-            throw new AddingFailException("Tên tài khoản đã tồn tại", dto);
-        }
-        if (userRepository.existsByUserEmail(dto.getEmail())) {
-            throw new AddingFailException("Email đã tồn tại", dto);
+            throw new AddingFailException("Tên đăng nhập đã tồn tại", dto);
         }
 
-        User user = User.builder()
-                .userName(dto.getUsername())
-                .userEmail(dto.getEmail())
-                .firstName(dto.getFirstName())
-                .lastName(dto.getLastName())
-                .phoneNumber(dto.getPhoneNumber())
-                .build();
+        // Check if email exists and is verified
+        User user = userRepository.findByUserEmail(dto.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Email chưa được xác thực", dto.getEmail()));
+
+        if (!user.getIsActive()) {
+            throw new AuthenticationFailException("Email chưa được xác thực", dto);
+        }
+
+        // Check if phone number is already registered
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
+            Optional<User> existingUserWithPhone = userRepository.findByPhoneNumber(dto.getPhoneNumber());
+            if (existingUserWithPhone.isPresent()) {
+                throw new AddingFailException("Số điện thoại đã được đăng ký", dto);
+            }
+        }
+
+        // Update user with registration data
+        user.setUserName(dto.getUsername());
+        user.setFirstName(dto.getFirstName() != null ? dto.getFirstName() : user.getFirstName());
+        user.setLastName(dto.getLastName() != null ? dto.getLastName() : user.getLastName());
+        user.setPhoneNumber(dto.getPhoneNumber());
         user.setUserPassword(passwordEncoder.encode(dto.getPassword()));
         user.setUserRole(dto.getUserRole() != null ? dto.getUserRole() : "ROLE_LEARNER");
-        user.setIsActive(true);
-        user.setCreatedAt(java.time.Instant.now());
-        user.setUpdatedAt(java.time.Instant.now());
-        user.setDeletedAt(null);
+        user.setActiveCode(null); // Clear OTP after successful registration
+        user.setIsActive(true); // Ensure account is active after registration
 
-        User newUser = userRepository.save(user);
+        userRepository.save(user);
+
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Đăng kí thành công")
-                .data(jwtUtil.generateToken(newUser.getId().toString(), newUser.getUserEmail(), newUser.getUserRole()))
+                .message("Đăng ký thành công")
+                .data(jwtUtil.generateToken(user.getId()+"", user.getUserEmail(), user.getUserRole()))
                 .build());
     }
 
     @Override
     public ResponseEntity<?> requestSignupOtp(String email) {
-        if (userRepository.existsByUserEmail(email)) {
-            throw new AddingFailException("Email đã tồn tại", email);
+        // Check if email is already registered and active
+        Optional<User> existingUser = userRepository.findByUserEmail(email);
+        if (existingUser.isPresent() && existingUser.get().getIsActive()) {
+            throw new AddingFailException("Email đã được đăng ký", email);
         }
 
         String otp = randomUtils.getRandomActiveCodeNumber(6L);
+        String encodedOtp = passwordEncoder.encode(otp);
         
-        // Store OTP in a temporary user record
-        User tempUser = User.builder()
-                .userEmail(email)
-                .activeCode(otp)
-                .modifyTime(Instant.now().plusSeconds(300)) // OTP valid for 5 minutes
-                .isActive(false)
-                .build();
-        userRepository.save(tempUser);
+        User user;
+        
+        if (existingUser.isPresent()) {
+            // Update existing user with new OTP
+            user = existingUser.get();
+            user.setActiveCode(otp);
+            user.setUserPassword(encodedOtp);
+            user.setModifyTime(Instant.now().plusSeconds(300)); // OTP valid for 5 minutes
+            user.setIsActive(false); // Ensure account is not active until OTP verification
+        } else {
+            // Create new temporary user
+            user = User.builder()
+                    .userEmail(email)
+                    .userName(email.split("@")[0])
+                    .firstName("Temporary")
+                    .lastName("User")
+                    .userRole("ROLE_LEARNER")
+                    .userPassword(encodedOtp)
+                    .isActive(false)
+                    .activeCode(otp)
+                    .createdAt(Instant.now())
+                    .modifyTime(Instant.now().plusSeconds(300))
+                    .build();
+        }
+
+        // Save user
+        userRepository.save(user);
 
         if(!mailUtils.sentEmail(email, "Mã xác thực đăng ký tài khoản VSLearn", 
             "Mã xác thực của bạn là: " + otp + "\nMã này có hiệu lực trong 5 phút.")) {
@@ -122,23 +157,23 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<?> verifySignupOtp(VerifySignupOtpDTO dto) {
-        User tempUser = userRepository.findByUserEmail(dto.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu đăng ký với email: " + dto.getEmail()));
+        User user = userRepository.findByUserEmail(dto.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Email chưa được đăng ký", dto.getEmail()));
 
-        if (!tempUser.getActiveCode().equals(dto.getOtp())) {
+        // Check if OTP matches
+        if (!user.getActiveCode().equals(dto.getOtp())) {
             throw new AuthenticationFailException("Mã xác thực không đúng", dto);
         }
 
-        if (tempUser.getModifyTime().isBefore(Instant.now())) {
-            userRepository.delete(tempUser);
+        // Check if OTP has expired
+        if (user.getModifyTime().isBefore(Instant.now())) {
             throw new AuthenticationFailException("Mã xác thực đã hết hạn", dto);
         }
 
-        // Activate the user
-        tempUser.setIsActive(true);
-        tempUser.setActiveCode(null);
-        tempUser.setModifyTime(null);
-        userRepository.save(tempUser);
+        // Activate user
+        user.setIsActive(true);
+        user.setActiveCode(null); // Clear OTP after successful verification
+        userRepository.save(user);
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
@@ -215,6 +250,11 @@ public class UserServiceImpl implements UserService {
             throw new AddingFailException("New password and confirm password do not match", dto);
         }
 
+        // Check if new password is same as current password
+        if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
+            throw new AddingFailException("New password must be different from current password", dto);
+        }
+
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
@@ -261,6 +301,11 @@ public class UserServiceImpl implements UserService {
 
         if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
             throw new AuthenticationFailException("New password and confirm password do not match", dto);
+        }
+
+        // Check if new password is same as current password
+        if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
+            throw new AuthenticationFailException("New password must be different from current password", dto);
         }
 
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
