@@ -30,6 +30,9 @@ public class SystemConfig implements WebMvcConfigurer {
             .and()
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/public/**").permitAll()
+                .requestMatchers("/learning-path/**").permitAll()
+                .requestMatchers("/progress/**").permitAll()
+                .requestMatchers("/demo/**").permitAll()
                 .requestMatchers("/users/profile/**").hasAnyAuthority("SCOPE_ROLE_LEARNER")
                 .requestMatchers("/users/signin").permitAll()
                 .requestMatchers("/users/signup").permitAll()

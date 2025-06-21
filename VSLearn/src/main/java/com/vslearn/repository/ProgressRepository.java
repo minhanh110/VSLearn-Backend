@@ -11,4 +11,5 @@ public interface ProgressRepository extends JpaRepository<Progress, Long> {
     //    List<Progress> findByUserId(Long userId);
     List<Progress> findBySubTopicId(Long subTopicId);
 //    Progress findByUserIdAndSubTopicId(Long userId, Long subTopicId);
+    List<Progress> findByCreatedBy_Id(Long userId);
 } 

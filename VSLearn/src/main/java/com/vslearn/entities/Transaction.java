@@ -2,6 +2,7 @@ package com.vslearn.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -17,6 +18,8 @@ import java.time.Instant;
 @Table(name = "transactions", indexes = {
         @Index(name = "pricing_id", columnList = "pricing_id"),
         @Index(name = "created_by", columnList = "created_by")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "code", columnNames = {"code"})
 })
 public class Transaction {
     @Id
@@ -36,6 +39,11 @@ public class Transaction {
     @NotNull
     @Column(name = "end_date", nullable = false)
     private Instant endDate;
+
+    @Size(max = 255)
+    @NotNull
+    @Column(name = "code", nullable = false)
+    private String code;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

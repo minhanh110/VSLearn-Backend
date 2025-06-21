@@ -197,7 +197,7 @@ public class UserServiceImpl implements UserService {
         user.setLastName(dto.getLastName());
         user.setPhoneNumber(dto.getPhoneNumber());
         user.setUserAvatar(dto.getUserAvatar());
-        user.setUpdatedAt(java.time.Instant.now());
+        user.setUpdatedAt(Instant.now());
 
         User updatedUser = userRepository.save(user);
 

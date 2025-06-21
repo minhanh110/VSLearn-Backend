@@ -77,6 +77,7 @@ CREATE TABLE pricing (
                          price INT UNSIGNED NOT NULL,
                          duration_days INT UNSIGNED NOT NULL,
                          discount_percent DOUBLE UNSIGNED NOT NULL,
+                         description VARCHAR(255),
                          created_at DATETIME NOT NULL,
                          created_by INT UNSIGNED NOT NULL,
                          updated_at DATETIME,
@@ -130,14 +131,17 @@ CREATE TABLE test_question (
 CREATE TABLE topic_point (
                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                              topic_id INT UNSIGNED NOT NULL,
-                             create_by INT UNSIGNED NOT NULL,
+                             feedback_content TEXT,
+                             rating INT UNSIGNED,
                              total_point DOUBLE NOT NULL,
+                             created_by INT UNSIGNED NOT NULL,
                              created_at DATETIME NOT NULL,
                              updated_at DATETIME,
                              updated_by INT UNSIGNED,
                              FOREIGN KEY (topic_id) REFERENCES topic(id) ON DELETE CASCADE,
-                             FOREIGN KEY (create_by) REFERENCES users(id) ON DELETE CASCADE
+                             FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 );
+
 
 
 CREATE TABLE transactions (
@@ -145,6 +149,7 @@ CREATE TABLE transactions (
                               pricing_id INT UNSIGNED NOT NULL,
                               start_date DATETIME NOT NULL,
                               end_date DATETIME NOT NULL,
+                              code VARCHAR(255) UNIQUE NOT NULL,
                               created_by INT UNSIGNED NOT NULL,
                               created_at DATETIME NOT NULL,
                               FOREIGN KEY (pricing_id) REFERENCES pricing(id) ON DELETE CASCADE,
@@ -186,15 +191,6 @@ CREATE TABLE user_answers (
                               FOREIGN KEY (option_answers_id) REFERENCES option_answers(id) ON DELETE CASCADE
 );
 
-
-CREATE TABLE user_feedback (
-                               id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                               feedback_content TEXT,
-                               rating INT UNSIGNED NOT NULL,
-                               created_by INT UNSIGNED NOT NULL,
-                               created_at DATETIME NOT NULL,
-                               FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-);
 
 
 CREATE TABLE vocab_area (
@@ -252,3 +248,22 @@ CREATE TABLE word (
                       deleted_at DATETIME,
                       deleted_by INT UNSIGNED
 );
+
+INSERT INTO topic (topic_name, is_free, status, created_at, created_by)
+VALUES
+    ('Bảng chữ cái và số đếm', 1, 'approve', NOW(), 1),
+    ('Bản thân', 1, 'approve', NOW(), 1);
+
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (1, 'Bảng chữ cái 1', 'approve', NOW(), 1),
+    (1, 'Bảng chữ cái 2', 'approve', NOW(), 1),
+    (1, 'Số đếm', 'approve', NOW(), 1);
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (2, 'Con người và đặc điểm', 'approve', NOW(), 1),
+    (2, 'Cơ thể người', 'approve', NOW(), 1),
+    (2, 'Hoạt động hàng ngày', 'approve', NOW(), 1);

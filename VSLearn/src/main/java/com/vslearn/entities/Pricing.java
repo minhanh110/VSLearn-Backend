@@ -33,6 +33,10 @@ public class Pricing {
     @Column(name = "duration_days", columnDefinition = "int UNSIGNED not null")
     private Long durationDays;
 
+    @Size(max = 255)
+    @Column(name = "description")
+    private String description;
+
     @NotNull
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
