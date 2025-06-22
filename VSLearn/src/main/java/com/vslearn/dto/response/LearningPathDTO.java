@@ -9,4 +9,6 @@ public class LearningPathDTO {
     private String title;
     private String description;
     private List<LessonDTO> lessons;
+    private Boolean accessible = true;
+    private String lockReason;
 } 

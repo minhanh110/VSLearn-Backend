@@ -34,6 +34,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/progress/**").permitAll()
                 .requestMatchers("/demo/**").permitAll()
                 .requestMatchers("/users/profile/**").hasAnyAuthority("SCOPE_ROLE_LEARNER")
+                .requestMatchers("/users/subscription-status").hasAnyAuthority("SCOPE_ROLE_LEARNER")
                 .requestMatchers("/users/signin").permitAll()
                 .requestMatchers("/users/signup").permitAll()
                 .requestMatchers("/users/signup/request-otp").permitAll()
