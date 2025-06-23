@@ -8,7 +8,7 @@ import java.util.List;
 
 @Repository
 public interface TopicPointRepository extends JpaRepository<TopicPoint, Long> {
-    List<TopicPoint> findByTopicId(Long topicId);
+      List<TopicPoint> findByTopicId(Long topicId);
 //    List<TopicPoint> findByTitleContainingIgnoreCase(String title);
 //    boolean existsByTitle(String title);
 } 

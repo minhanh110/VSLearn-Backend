@@ -20,9 +20,11 @@ public class UserDataDTO {
   @Size(min = 6, max = 40)
   private String password;
 
+  @NotBlank
   @Size(max = 50)
   private String firstName;
 
+  @NotBlank
   @Size(max = 50)
   private String lastName;
 

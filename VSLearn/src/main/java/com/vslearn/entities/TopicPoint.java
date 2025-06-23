@@ -16,7 +16,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "topic_point", indexes = {
         @Index(name = "topic_id", columnList = "topic_id"),
-        @Index(name = "create_by", columnList = "create_by")
+        @Index(name = "created_by", columnList = "created_by")
 })
 public class TopicPoint {
     @Id
@@ -29,15 +29,22 @@ public class TopicPoint {
     @JoinColumn(name = "topic_id", nullable = false)
     private Topic topic;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "create_by", nullable = false)
-    private User createBy;
+    @Lob
+    @Column(name = "feedback_content")
+    private String feedbackContent;
+
+    @Column(name = "rating", columnDefinition = "int UNSIGNED")
+    private Long rating;
 
     @NotNull
     @Column(name = "total_point", nullable = false)
     private Double totalPoint;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "created_by", nullable = false)
+    private User createdBy;
 
     @NotNull
     @Column(name = "created_at", nullable = false)

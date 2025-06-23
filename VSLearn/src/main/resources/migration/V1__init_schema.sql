@@ -77,6 +77,7 @@ CREATE TABLE pricing (
                          price INT UNSIGNED NOT NULL,
                          duration_days INT UNSIGNED NOT NULL,
                          discount_percent DOUBLE UNSIGNED NOT NULL,
+                         description VARCHAR(255),
                          created_at DATETIME NOT NULL,
                          created_by INT UNSIGNED NOT NULL,
                          updated_at DATETIME,
@@ -130,14 +131,17 @@ CREATE TABLE test_question (
 CREATE TABLE topic_point (
                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                              topic_id INT UNSIGNED NOT NULL,
-                             create_by INT UNSIGNED NOT NULL,
+                             feedback_content TEXT,
+                             rating INT UNSIGNED,
                              total_point DOUBLE NOT NULL,
+                             created_by INT UNSIGNED NOT NULL,
                              created_at DATETIME NOT NULL,
                              updated_at DATETIME,
                              updated_by INT UNSIGNED,
                              FOREIGN KEY (topic_id) REFERENCES topic(id) ON DELETE CASCADE,
-                             FOREIGN KEY (create_by) REFERENCES users(id) ON DELETE CASCADE
+                             FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 );
+
 
 
 CREATE TABLE transactions (
@@ -145,6 +149,7 @@ CREATE TABLE transactions (
                               pricing_id INT UNSIGNED NOT NULL,
                               start_date DATETIME NOT NULL,
                               end_date DATETIME NOT NULL,
+                              code VARCHAR(255) UNIQUE NOT NULL,
                               created_by INT UNSIGNED NOT NULL,
                               created_at DATETIME NOT NULL,
                               FOREIGN KEY (pricing_id) REFERENCES pricing(id) ON DELETE CASCADE,
@@ -186,15 +191,6 @@ CREATE TABLE user_answers (
                               FOREIGN KEY (option_answers_id) REFERENCES option_answers(id) ON DELETE CASCADE
 );
 
-
-CREATE TABLE user_feedback (
-                               id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                               feedback_content TEXT,
-                               rating INT UNSIGNED NOT NULL,
-                               created_by INT UNSIGNED NOT NULL,
-                               created_at DATETIME NOT NULL,
-                               FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-);
 
 
 CREATE TABLE vocab_area (
@@ -252,3 +248,108 @@ CREATE TABLE word (
                       deleted_at DATETIME,
                       deleted_by INT UNSIGNED
 );
+
+INSERT INTO topic (topic_name, is_free, status, created_at, created_by)
+VALUES
+    ('Bảng chữ cái và số đếm', 1, 'approve', NOW(), 1),
+    ('Bản thân', 1, 'approve', NOW(), 1);
+
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (1, 'Bảng chữ cái 1', 'approve', NOW(), 1),
+    (1, 'Bảng chữ cái 2', 'approve', NOW(), 1),
+    (1, 'Số đếm', 'approve', NOW(), 1);
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (2, 'Con người và đặc điểm', 'approve', NOW(), 1),
+    (2, 'Cơ thể người', 'approve', NOW(), 1),
+    (2, 'Hoạt động hàng ngày', 'approve', NOW(), 1);
+    
+
+INSERT INTO topic (topic_name, is_free, status, created_at, created_by)
+VALUES
+    ('Gia đình', 1, 'approve', NOW(), 1),
+    ('Công việc', 1, 'approve', NOW(), 1),
+    ('Hiện tượng tự nhiên', 1, 'approve', NOW(), 1),
+    ('Thực vật', 1, 'approve', NOW(), 1),
+    ('Động vật', 1, 'approve', NOW(), 1),
+    ('Trường học', 1, 'approve', NOW(), 1),
+    ('Giao thông', 1, 'approve', NOW(), 1),
+    ('Quê hương đất nước', 1, 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (3, 'Các thành viên trong gia đình', 'approve', NOW(), 1),
+    (3, 'Họ hàng', 'approve', NOW(), 1),
+    (3, 'Đồ dùng trong gia đình', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (4, 'Công việc', 'approve', NOW(), 1),
+    (4, 'Dụng cụ lao động', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (5, 'Thời gian', 'approve', NOW(), 1),
+    (5, 'Ngày trong tuần', 'approve', NOW(), 1),
+    (5, 'Thời tiết', 'approve', NOW(), 1),
+    (5, 'Địa hình', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (6, 'Trái cây', 'approve', NOW(), 1),
+    (6, 'Hoa', 'approve', NOW(), 1),
+    (6, 'Rau và cây', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (7, 'Thú nuôi và trang trại', 'approve', NOW(), 1),
+    (7, 'Thú rừng và động vật dưới nước', 'approve', NOW(), 1),
+    (7, 'Chim và côn trùng', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (8, 'Trường học và người trong trường', 'approve', NOW(), 1),
+    (8, 'Đồ dùng học tập', 'approve', NOW(), 1),
+    (8, 'Thủ công và nghệ thuật', 'approve', NOW(), 1),
+    (8, 'Môn học và hoạt động học tập', 'approve', NOW(), 1);
+    
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (9, 'Phương tiện giao thông và tốc độ', 'approve', NOW(), 1),
+    (9, 'Địa điểm giao thông và tín hiệu giao thông', 'approve', NOW(), 1);
+
+
+INSERT INTO sub_topic (topic_id, sub_topic_name, status, created_at, created_by)
+VALUES
+    (10, 'Địa điểm', 'approve', NOW(), 1),
+    (10, 'Ngày lễ và Tết', 'approve', NOW(), 1);
+    
+    
+    
+    
+
+INSERT INTO pricing (pricing_type, price, duration_days, discount_percent, description, created_at, created_by) VALUES
+('1_MONTH', 100000, 30, 0.0, 'Gói học 1 tháng', NOW(), 1),
+('3_MONTHS', 250000, 90, 0.1, 'Gói học 3 tháng', NOW(), 1),
+('6_MONTHS', 500000, 180, 0.2, 'Gói học 6 tháng', NOW(), 1);
+
+
+INSERT INTO transactions (pricing_id, start_date, end_date, code, created_by, created_at) VALUES
+(2, NOW() - INTERVAL 30 DAY, NOW() + INTERVAL 60 DAY, 'TXN_TEST_001', 2, NOW());
+
+
+INSERT INTO transactions (pricing_id, start_date, end_date, code, created_by, created_at) VALUES
+(1, NOW() - INTERVAL 60 DAY, NOW() - INTERVAL 30 DAY, 'TXN_TEST_002', 3, NOW() - INTERVAL 60 DAY); 
+
