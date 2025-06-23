@@ -29,24 +29,26 @@ public class SystemConfig implements WebMvcConfigurer {
             .cors()
             .and()
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/flashcards/**").permitAll()
                 .requestMatchers("/public/**").permitAll()
                 .requestMatchers("/learning-path/**").permitAll()
                 .requestMatchers("/progress/**").permitAll()
                 .requestMatchers("/demo/**").permitAll()
                 .requestMatchers("/users/profile/**").hasAnyAuthority("SCOPE_ROLE_LEARNER")
-                .requestMatchers("/users/subscription-status").hasAnyAuthority("SCOPE_ROLE_LEARNER")
+                .requestMatchers("/users/subscription-status").permitAll()
                 .requestMatchers("/users/signin").permitAll()
                 .requestMatchers("/users/signup").permitAll()
                 .requestMatchers("/users/signup/request-otp").permitAll()
                 .requestMatchers("/users/signup/verify-otp").permitAll()
                 .requestMatchers("/users/forgot-password").permitAll()
                 .requestMatchers("/users/reset-password").permitAll()
+                .requestMatchers("/users/oauth2/**").permitAll()
                 .requestMatchers("/oauth2/**").permitAll()
                 .anyRequest().authenticated())
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/users/signin")
                 .defaultSuccessUrl("http://localhost:3000/oauth2/callback", true)
-                .failureUrl("http://localhost:3000/login?error=true"))
+                .failureUrl("http://localhost:3000/login?error=oauth2_failed"))
             .csrf().disable();
 
         http.oauth2ResourceServer(oauth2 -> {

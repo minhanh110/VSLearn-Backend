@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.nimbusds.jwt.JWTClaimsSet;
 
 import java.time.Instant;
 import java.util.List;
@@ -71,8 +72,21 @@ public class UserController {
     }
 
     @GetMapping("/subscription-status")
-    public ResponseEntity<?> getSubscriptionStatus(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> getSubscriptionStatus(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            // Nếu không có Authorization header, trả về guest user
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("Guest user")
+                        .data(Map.of(
+                            "hasSubscription", false,
+                            "userType", "guest",
+                            "maxTopics", 1
+                        ))
+                        .build());
+            }
+            
             String token = authHeader.replace("Bearer ", "");
             String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
             
@@ -179,5 +193,39 @@ public class UserController {
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody @Valid ResetPasswordDTO dto) {
         return userService.verifyOtpAndResetPassword(dto);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ResponseData<String>> refreshToken(@RequestHeader("Authorization") String authHeader) {
+        try {
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
+                JWTClaimsSet claims = jwtUtil.getClaimsFromToken(token);
+                
+                // Tạo token mới với thời gian hết hạn mới
+                String newToken = jwtUtil.generateToken(
+                    claims.getClaim("id").toString(),
+                    claims.getSubject(),
+                    claims.getClaim("scope").toString()
+                );
+                
+                return ResponseEntity.ok(ResponseData.<String>builder()
+                    .status(200)
+                    .message("Token refreshed successfully")
+                    .data(newToken)
+                    .build());
+            }
+            return ResponseEntity.status(401).body(ResponseData.<String>builder()
+                .status(401)
+                .message("Invalid token")
+                .data(null)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(ResponseData.<String>builder()
+                .status(401)
+                .message("Token refresh failed")
+                .data(null)
+                .build());
+        }
     }
 }

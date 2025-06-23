@@ -11,6 +11,7 @@ import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.UserRepository;
 import com.vslearn.repository.TransactionRepository;
+import com.vslearn.repository.VocabAreaRepository;
 import com.vslearn.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,8 @@ public class LearningPathController {
     private UserRepository userRepository;
     @Autowired
     private TransactionRepository transactionRepository;
+    @Autowired
+    private VocabAreaRepository vocabAreaRepository;
     @Autowired
     private JwtUtil jwtUtil;
 
@@ -93,19 +96,21 @@ public class LearningPathController {
                     l.setTitle(sub.getSubTopicName());
                     l.setIsTest(sub.getStatus() != null && sub.getStatus().toLowerCase().contains("test"));
                     
-                    // Set default values cho wordCount và questionCount
+                    // Lấy số từ vựng thực tế từ database
                     if (l.getIsTest()) {
                         l.setQuestionCount(10); // Default 10 câu hỏi cho test
                         l.setWordCount(null);
                     } else {
-                        l.setWordCount(20); // Default 20 từ cho lesson
+                        // Đếm số từ vựng thực tế của subtopic
+                        long actualWordCount = vocabAreaRepository.countByVocabSubTopicId(sub.getId());
+                        l.setWordCount((int) actualWordCount);
                         l.setQuestionCount(null);
                     }
                     
                     // Lesson cũng bị khóa nếu topic bị khóa
                     l.setAccessible(isAccessible);
                     
-                    System.out.println("  - Lesson: " + l.getTitle() + " (ID: " + l.getId() + ", isTest: " + l.getIsTest() + ", accessible: " + isAccessible + ")");
+                    System.out.println("  - Lesson: " + l.getTitle() + " (ID: " + l.getId() + ", isTest: " + l.getIsTest() + ", wordCount: " + l.getWordCount() + ", accessible: " + isAccessible + ")");
                     return l;
                 }).collect(Collectors.toList());
 
