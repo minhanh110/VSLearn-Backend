@@ -3,24 +3,26 @@ package com.vslearn.controller;
 import com.vslearn.dto.response.FlashcardDTO;
 import com.vslearn.dto.response.SubtopicInfoDTO;
 import com.vslearn.dto.response.ResponseData;
+import com.vslearn.dto.response.TimelineResponseDTO;
+import com.vslearn.dto.response.PracticeQuestionsResponseDTO;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.entities.VocabArea;
 import com.vslearn.service.FlashcardService;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.VocabAreaRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.vslearn.dto.response.PracticeQuestionDTO;
+
 @RestController
 @RequestMapping("/api/v1/flashcards")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class FlashcardController {
     private final FlashcardService flashcardService;
     private final SubTopicRepository subTopicRepository;
@@ -66,6 +68,41 @@ public class FlashcardController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(flashcards);
+    }
+
+    // New endpoint: Get timeline for subtopic
+    @GetMapping("/subtopic/{subtopicId}/timeline")
+    public ResponseEntity<TimelineResponseDTO> getTimeline(@PathVariable String subtopicId) {
+        try {
+            TimelineResponseDTO timeline = flashcardService.generateTimeline(subtopicId);
+            return ResponseEntity.ok(timeline);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // New endpoint: Get practice questions for specific range
+    @GetMapping("/subtopic/{subtopicId}/practice")
+    public ResponseEntity<PracticeQuestionsResponseDTO> getPracticeQuestions(
+            @PathVariable String subtopicId,
+            @RequestParam(defaultValue = "0") int start,
+            @RequestParam(defaultValue = "3") int end) {
+        try {
+            PracticeQuestionsResponseDTO questions = flashcardService.generatePracticeQuestions(subtopicId, start, end);
+            return ResponseEntity.ok(questions);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Legacy endpoint: Get all practice questions for subtopic
+    @GetMapping("/subtopic/{subtopicId}/practice/all")
+    public ResponseEntity<List<PracticeQuestionDTO>> getPracticeQuestionsBySubtopicId(@PathVariable String subtopicId) {
+        List<PracticeQuestionDTO> questions = flashcardService.getPracticeQuestionsForSubtopic(subtopicId);
+        if (questions.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(questions);
     }
 
     @GetMapping("/subtopic/{subtopicId}/debug")
