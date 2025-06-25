@@ -20,8 +20,10 @@ import java.time.Instant;
 })
 public class Progress {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
-    private Long id;
+    @Builder.Default
+    private Long id = null;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -42,5 +44,4 @@ public class Progress {
     @NotNull
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
 }
