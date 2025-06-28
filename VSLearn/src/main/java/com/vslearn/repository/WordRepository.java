@@ -15,6 +15,9 @@ public interface WordRepository extends JpaRepository<Word, Long> {
     @Query("SELECT w FROM Word w WHERE w.deletedAt IS NULL")
     List<Word> findAllActive();
     
-    @Query("SELECT v FROM Vocab v JOIN v.subTopic st WHERE st.topic.id = :topicId AND v.deletedAt IS NULL ORDER BY FUNCTION('RAND')")
-    List<Vocab> findRandomVocabByTopicId(@Param("topicId") Long topicId);
+    @Query("SELECT v FROM Vocab v JOIN v.subTopic st WHERE st.topic.id = :topicId AND v.deletedAt IS NULL ORDER BY FUNCTION('RAND') LIMIT :limit")
+    List<Vocab> findRandomVocabByTopicId(@Param("topicId") Long topicId, @Param("limit") int limit);
+    
+    @Query("SELECT w.word FROM Word w WHERE w.deletedAt IS NULL ORDER BY FUNCTION('RAND') LIMIT :limit")
+    List<String> findRandomDistractorWords(@Param("limit") int limit);
 } 

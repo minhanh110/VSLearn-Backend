@@ -20,6 +20,7 @@ import java.time.Instant;
 })
 public class TopicPoint {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 

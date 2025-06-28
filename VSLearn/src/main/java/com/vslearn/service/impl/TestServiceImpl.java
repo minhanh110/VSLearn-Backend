@@ -37,9 +37,11 @@ public class TestServiceImpl implements TestService {
     private final UserRepository userRepository;
     private final VocabRepository vocabRepository;
     private final VocabAreaRepository vocabAreaRepository;
+    private final TopicPointRepository topicPointRepository;
 
     private final Storage storage;
     private final String bucketName;
+
 
     public TestServiceImpl(
             TestQuestionRepository testQuestionRepository,
@@ -50,6 +52,7 @@ public class TestServiceImpl implements TestService {
             UserRepository userRepository,
             VocabRepository vocabRepository,
             VocabAreaRepository vocabAreaRepository,
+            TopicPointRepository topicPointRepository,
             @Value("${gcp.storage.credentials.location}") String credentialsPath,
             @Value("${gcp.storage.bucket.name}") String bucketName
     ) throws IOException {
@@ -65,6 +68,7 @@ public class TestServiceImpl implements TestService {
         this.userRepository = userRepository;
         this.vocabRepository = vocabRepository;
         this.vocabAreaRepository = vocabAreaRepository;
+        this.topicPointRepository = topicPointRepository;
         this.bucketName = bucketName;
         
         try {
@@ -193,43 +197,43 @@ public class TestServiceImpl implements TestService {
             }
         } else {
             System.out.println("Generating questions from topic vocab");
-            // Generate questions from topic vocab
-            List<Vocab> topicVocabs = wordRepository.findRandomVocabByTopicId(topicId);
+            // Generate questions from topic vocab only
+            List<Vocab> topicVocabs = wordRepository.findRandomVocabByTopicId(topicId, 20);
             System.out.println("Found " + topicVocabs.size() + " vocab for topic " + topicId);
             
-            // Limit to 20 vocab if more than 20
-            if (topicVocabs.size() > 20) {
-                topicVocabs = topicVocabs.subList(0, 20);
+            // If we don't have enough vocab in this topic, we'll work with what we have
+            if (topicVocabs.isEmpty()) {
+                System.out.println("No vocab found for topic " + topicId + ", returning empty test");
+                return testQuestions;
             }
             
-            if (topicVocabs.size() < 20) {
-                System.out.println("Not enough vocab, getting more from all vocab");
-                // If not enough vocab, get more from all vocab
-                List<Vocab> allVocabs = vocabRepository.findAllActive();
-                System.out.println("Total active vocab: " + allVocabs.size());
-                Collections.shuffle(allVocabs);
-                int needed = 20 - topicVocabs.size();
-                topicVocabs.addAll(allVocabs.subList(0, Math.min(needed, allVocabs.size())));
-                System.out.println("After adding more vocab: " + topicVocabs.size() + " total");
-            }
+            // Generate questions based on available vocab
+            int availableVocabs = topicVocabs.size();
+            int totalQuestions = Math.min(20, availableVocabs * 3); // Max 3 questions per vocab
             
-            // Generate 20 questions with different types
-            int questionsPerType = 7; // 7 multiple choice, 7 true/false, 6 essay = 20 total
+            // Calculate questions per type based on available vocab
+            int questionsPerType = Math.min(7, availableVocabs);
+            int essayQuestions = Math.min(6, availableVocabs - questionsPerType);
+            
+            System.out.println("Generating " + totalQuestions + " questions: " + 
+                             questionsPerType + " multiple choice, " + 
+                             questionsPerType + " true/false, " + 
+                             essayQuestions + " essay");
             
             // Multiple choice questions
-            for (int i = 0; i < Math.min(questionsPerType, topicVocabs.size()); i++) {
+            for (int i = 0; i < questionsPerType && i < topicVocabs.size(); i++) {
                 Vocab vocab = topicVocabs.get(i);
                 testQuestions.add(generateMultipleChoiceQuestion(vocab, topicVocabs, i));
             }
             
             // True/False questions
-            for (int i = 0; i < Math.min(questionsPerType, topicVocabs.size() - questionsPerType); i++) {
+            for (int i = 0; i < questionsPerType && (i + questionsPerType) < topicVocabs.size(); i++) {
                 Vocab vocab = topicVocabs.get(i + questionsPerType);
-                testQuestions.add(generateTrueFalseQuestion(vocab, i));
+                testQuestions.add(generateTrueFalseQuestion(vocab, topicVocabs, i));
             }
             
             // Essay questions
-            for (int i = 0; i < Math.min(6, topicVocabs.size() - 2 * questionsPerType); i++) {
+            for (int i = 0; i < essayQuestions && (i + 2 * questionsPerType) < topicVocabs.size(); i++) {
                 Vocab vocab = topicVocabs.get(i + 2 * questionsPerType);
                 testQuestions.add(generateEssayQuestion(vocab, i));
             }
@@ -243,25 +247,83 @@ public class TestServiceImpl implements TestService {
     }
 
     private TestSubmissionResponseDTO submitTestLogic(TestSubmissionRequest request) {
-        // Calculate score
-        int correctAnswers = 0;
+        // Use the score calculated by frontend since it has the correct questions and answers
+        int score = request.getScore() != null ? request.getScore() : 0;
         int totalQuestions = request.getAnswers().size();
+        int correctAnswers = (int) Math.round((double) score * totalQuestions / 100);
         
-        for (TestSubmissionRequest.TestAnswer answer : request.getAnswers()) {
-            // For now, we'll assume all answers are correct if they're not empty
-            // In a real implementation, you'd validate against correct answers
-            if (answer.getAnswer() != null && !answer.getAnswer().trim().isEmpty()) {
-                correctAnswers++;
-            }
-        }
+        System.out.println("=== submitTestLogic started ===");
+        System.out.println("Using frontend calculated score: " + score + "%");
+        System.out.println("Total questions: " + totalQuestions);
+        System.out.println("Calculated correct answers: " + correctAnswers);
+        System.out.println("User ID: " + request.getUserId());
+        System.out.println("Topic ID: " + request.getTopicId());
         
-        int score = (int) Math.round((double) correctAnswers / totalQuestions * 100);
         boolean isPassed = score >= 90;
+        
+        System.out.println("Is passed: " + isPassed);
         
         // If passed, mark topic as completed
         boolean topicCompleted = false;
         if (isPassed) {
             topicCompleted = markTopicAsCompleted(request.getUserId(), request.getTopicId());
+        }
+        
+        // Save or update test score in TopicPoint
+        try {
+            System.out.println("=== Starting database save process ===");
+            
+            Topic topic = topicRepository.findById(request.getTopicId())
+                    .orElseThrow(() -> new RuntimeException("Topic not found"));
+            User user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            System.out.println("Found topic: " + topic.getTopicName() + " (ID: " + topic.getId() + ")");
+            System.out.println("Found user: " + user.getUserName() + " (ID: " + user.getId() + ")");
+            
+            List<TopicPoint> existingTopicPoints = topicPointRepository.findByCreatedByIdAndTopicId(request.getUserId(), request.getTopicId());
+            System.out.println("Found " + existingTopicPoints.size() + " existing TopicPoint records");
+            
+            if (!existingTopicPoints.isEmpty()) {
+                // Use the most recent TopicPoint (latest created_at)
+                TopicPoint existingTopicPoint = existingTopicPoints.stream()
+                        .max(Comparator.comparing(TopicPoint::getCreatedAt))
+                        .orElse(existingTopicPoints.get(0));
+                
+                // Update existing TopicPoint with test score
+                System.out.println("Updating existing TopicPoint ID: " + existingTopicPoint.getId() + " with score: " + score);
+                System.out.println("Previous totalPoint: " + existingTopicPoint.getTotalPoint());
+                existingTopicPoint.setTotalPoint((double) score);
+                existingTopicPoint.setUpdatedAt(Instant.now());
+                TopicPoint savedTopicPoint = topicPointRepository.save(existingTopicPoint);
+                System.out.println("✅ Successfully updated TopicPoint ID: " + savedTopicPoint.getId() + " with totalPoint: " + savedTopicPoint.getTotalPoint());
+            } else {
+                // Create new TopicPoint with test score
+                System.out.println("Creating new TopicPoint with score: " + score);
+                TopicPoint newTopicPoint = TopicPoint.builder()
+                        .topic(topic)
+                        .totalPoint((double) score)
+                        .createdBy(user)
+                        .createdAt(Instant.now())
+                        .build();
+                TopicPoint savedTopicPoint = topicPointRepository.save(newTopicPoint);
+                System.out.println("✅ Successfully created new TopicPoint ID: " + savedTopicPoint.getId() + " with totalPoint: " + savedTopicPoint.getTotalPoint());
+            }
+            
+            System.out.println("=== Database save process completed ===");
+            
+            // Verify the save by querying the database again
+            List<TopicPoint> verifyTopicPoints = topicPointRepository.findByCreatedByIdAndTopicId(request.getUserId(), request.getTopicId());
+            System.out.println("Verification: Found " + verifyTopicPoints.size() + " TopicPoint records after save");
+            if (!verifyTopicPoints.isEmpty()) {
+                TopicPoint latestTopicPoint = verifyTopicPoints.stream()
+                        .max(Comparator.comparing(TopicPoint::getCreatedAt))
+                        .orElse(verifyTopicPoints.get(0));
+                System.out.println("Latest TopicPoint totalPoint: " + latestTopicPoint.getTotalPoint());
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error saving test score to TopicPoint: " + e.getMessage());
+            e.printStackTrace();
         }
         
         // Get next topic info
@@ -333,7 +395,7 @@ public class TestServiceImpl implements TestService {
         return dto;
     }
 
-    private TestQuestionResponseDTO generateMultipleChoiceQuestion(Vocab vocab, List<Vocab> allVocabs, int index) {
+    private TestQuestionResponseDTO generateMultipleChoiceQuestion(Vocab vocab, List<Vocab> topicVocabs, int index) {
         TestQuestionResponseDTO dto = new TestQuestionResponseDTO();
         dto.setId((long) (index + 1));
         dto.setType("multiple-choice");
@@ -350,8 +412,8 @@ public class TestServiceImpl implements TestService {
         List<String> options = new ArrayList<>();
         options.add(vocab.getVocab());
         
-        // Add 3 random wrong options
-        List<Vocab> wrongOptions = allVocabs.stream()
+        // Add 3 random wrong options from the same topic
+        List<Vocab> wrongOptions = topicVocabs.stream()
             .filter(w -> !w.getVocab().equals(vocab.getVocab()))
             .collect(Collectors.toList());
         Collections.shuffle(wrongOptions);
@@ -360,7 +422,7 @@ public class TestServiceImpl implements TestService {
             options.add(wrongOptions.get(i).getVocab());
         }
         
-        // If we don't have enough wrong options, add generic ones
+        // If we don't have enough wrong options from topic, add generic ones
         while (options.size() < 4) {
             options.add("Option " + (options.size() + 1));
         }
@@ -371,7 +433,7 @@ public class TestServiceImpl implements TestService {
         return dto;
     }
 
-    private TestQuestionResponseDTO generateTrueFalseQuestion(Vocab vocab, int index) {
+    private TestQuestionResponseDTO generateTrueFalseQuestion(Vocab vocab, List<Vocab> topicVocabs, int index) {
         TestQuestionResponseDTO dto = new TestQuestionResponseDTO();
         dto.setId((long) (index + 8)); // Start from 8 to avoid conflicts
         dto.setType("true-false");
@@ -390,9 +452,8 @@ public class TestServiceImpl implements TestService {
             dto.setCorrectAnswer("true");
             dto.setTrueFalseAnswer(true);
         } else {
-            // False statement: use a random wrong vocab
-            List<Vocab> allVocabs = vocabRepository.findAllActive();
-            List<Vocab> wrongVocabs = allVocabs.stream()
+            // False statement: use a random wrong vocab from the same topic
+            List<Vocab> wrongVocabs = topicVocabs.stream()
                 .filter(v -> !v.getVocab().equals(vocab.getVocab()))
                 .collect(Collectors.toList());
             
@@ -403,7 +464,7 @@ public class TestServiceImpl implements TestService {
                 dto.setCorrectAnswer("false");
                 dto.setTrueFalseAnswer(false);
             } else {
-                // Fallback to true statement if no wrong vocab available
+                // Fallback to true statement if no wrong vocab available in topic
                 dto.setQuestion("HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ: " + vocab.getVocab() + "?");
                 dto.setCorrectAnswer("true");
                 dto.setTrueFalseAnswer(true);
@@ -438,17 +499,17 @@ public class TestServiceImpl implements TestService {
             System.out.println("Found " + vocabAreas.size() + " vocab areas for vocab: " + vocab.getVocab());
             
             if (!vocabAreas.isEmpty()) {
-                String gifName = vocabAreas.get(0).getVocabAreaGif();
-                System.out.println("GIF name: " + gifName);
+                String videoName = vocabAreas.get(0).getVocabAreaVideo();
+                System.out.println("Video name: " + videoName);
                 
-                if (gifName != null && !gifName.isEmpty()) {
+                if (videoName != null && !videoName.isEmpty()) {
                     // If it's a full URL, return as is
-                    if (gifName.startsWith("http")) {
-                        System.out.println("Returning full URL: " + gifName);
-                        return gifName;
+                    if (videoName.startsWith("http")) {
+                        System.out.println("Returning full URL: " + videoName);
+                        return videoName;
                     }
                     // If it's a filename, generate signed URL from Google Cloud Storage
-                    URL signedUrl = generateSignedUrl(gifName);
+                    URL signedUrl = generateSignedUrl(videoName);
                     String result = signedUrl != null ? signedUrl.toString() : null;
                     System.out.println("Generated signed URL: " + result);
                     return result;
@@ -470,7 +531,7 @@ public class TestServiceImpl implements TestService {
         try {
             BlobId blobId = BlobId.of(bucketName, objectName);
             BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
-            return storage.signUrl(blobInfo, 15, TimeUnit.MINUTES, Storage.SignUrlOption.withV4Signature());
+            return storage.signUrl(blobInfo, 2, TimeUnit.HOURS, Storage.SignUrlOption.withV4Signature());
         } catch (Exception e) {
             e.printStackTrace();
             return null;

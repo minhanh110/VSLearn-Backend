@@ -7,6 +7,7 @@ import com.vslearn.dto.response.PracticeQuestionsResponseDTO;
 import com.vslearn.dto.response.SubtopicInfoDTO;
 import com.vslearn.dto.response.FlashcardProgressResponse;
 import com.vslearn.dto.request.FlashcardProgressSaveRequest;
+import com.vslearn.dto.response.SentenceBuildingQuestionDTO;
 import java.util.List;
 
 public interface FlashcardService {
@@ -18,10 +19,19 @@ public interface FlashcardService {
     List<PracticeQuestionDTO> getPracticeQuestionsForSubtopic(String subtopicId);
     SubtopicInfoDTO getSubtopicInfo(String subtopicId);
     FlashcardProgressResponse saveProgress(String subtopicId, FlashcardProgressSaveRequest request);
+    FlashcardProgressResponse getProgress(String subtopicId);
+
     FlashcardProgressResponse getProgress(String subtopicId, String userId);
+
+    List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestions(String subtopicId);
     
+    boolean hasSentenceBuildingForTopic(Long topicId);
+    
+    List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestionsForTopic(Long topicId);
+}
     // endpoint debug
     // Object debugSubtopicFlashcards(String subtopicId);
     // Object testVocabSubtopicMapping();
     // ResponseEntity<ResponseData<Integer>> getSubtopicWordCount(Long subtopicId);
-}
+
+   
