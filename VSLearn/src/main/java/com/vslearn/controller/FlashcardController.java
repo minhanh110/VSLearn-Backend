@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.vslearn.dto.response.PracticeQuestionDTO;
 import com.vslearn.dto.response.FlashcardProgressResponse;
 import com.vslearn.dto.request.FlashcardProgressSaveRequest;
+import com.vslearn.dto.response.SentenceBuildingQuestionDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,33 @@ public class FlashcardController {
             @RequestParam String userId) {
         FlashcardProgressResponse response = flashcardService.getProgress(subtopicId, userId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/subtopic/{subtopicId}/sentence-building")
+    public ResponseEntity<List<SentenceBuildingQuestionDTO>> getSentenceBuildingQuestions(
+            @PathVariable String subtopicId) {
+        List<SentenceBuildingQuestionDTO> questions = flashcardService.getSentenceBuildingQuestions(subtopicId);
+        if (questions.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(questions);
+    }
+
+    @GetMapping("/topic/{topicId}/has-sentence-building")
+    public ResponseEntity<Map<String, Boolean>> hasSentenceBuildingForTopic(
+            @PathVariable Long topicId) {
+        boolean hasSentenceBuilding = flashcardService.hasSentenceBuildingForTopic(topicId);
+        return ResponseEntity.ok(Map.of("hasSentenceBuilding", hasSentenceBuilding));
+    }
+
+    @GetMapping("/topic/{topicId}/sentence-building")
+    public ResponseEntity<List<SentenceBuildingQuestionDTO>> getSentenceBuildingQuestionsForTopic(
+            @PathVariable Long topicId) {
+        List<SentenceBuildingQuestionDTO> questions = flashcardService.getSentenceBuildingQuestionsForTopic(topicId);
+        if (questions.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(questions);
     }
 
     //  endpoint debug

@@ -12,21 +12,24 @@ import com.vslearn.dto.response.PracticeQuestionsResponseDTO;
 import com.vslearn.dto.response.SubtopicInfoDTO;
 import com.vslearn.dto.response.FlashcardProgressResponse;
 import com.vslearn.dto.request.FlashcardProgressSaveRequest;
+import com.vslearn.dto.response.SentenceBuildingQuestionDTO;
 import com.vslearn.entities.VocabArea;
 import com.vslearn.entities.Progress;
 import com.vslearn.entities.User;
-import com.vslearn.entities.VocabArea;
 import com.vslearn.entities.SubTopic;
+import com.vslearn.entities.Sentence;
+import com.vslearn.entities.SentenceVocab;
 import com.vslearn.repository.VocabAreaRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.ProgressRepository;
 import com.vslearn.repository.UserRepository;
+import com.vslearn.repository.SentenceRepository;
+import com.vslearn.repository.SentenceVocabRepository;
+import com.vslearn.repository.WordRepository;
 import com.vslearn.service.FlashcardService;
 import com.vslearn.exception.customizeException.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.FileInputStream;
@@ -49,12 +52,18 @@ public class FlashcardServiceImpl implements FlashcardService {
     private final ProgressRepository progressRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final SentenceRepository sentenceRepository;
+    private final SentenceVocabRepository sentenceVocabRepository;
+    private final WordRepository wordRepository;
 
     public FlashcardServiceImpl(
             VocabAreaRepository vocabAreaRepository,
             SubTopicRepository subTopicRepository,
             ProgressRepository progressRepository,
             UserRepository userRepository,
+            SentenceRepository sentenceRepository,
+            SentenceVocabRepository sentenceVocabRepository,
+            WordRepository wordRepository,
             @Value("${gcp.storage.credentials.location}") String credentialsPath,
             @Value("${gcp.storage.bucket.name}") String bucketName,
             ObjectMapper objectMapper
@@ -63,6 +72,9 @@ public class FlashcardServiceImpl implements FlashcardService {
         this.subTopicRepository = subTopicRepository;
         this.progressRepository = progressRepository;
         this.userRepository = userRepository;
+        this.sentenceRepository = sentenceRepository;
+        this.sentenceVocabRepository = sentenceVocabRepository;
+        this.wordRepository = wordRepository;
         this.bucketName = bucketName;
         GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(credentialsPath.replace("file:", "")));
         this.storage = StorageOptions.newBuilder().setCredentials(credentials).build().getService();
@@ -77,10 +89,10 @@ public class FlashcardServiceImpl implements FlashcardService {
         return vocabAreas.stream().map(va -> {
             String word = va.getVocab().getVocab();
             String description = va.getVocabAreaDescription() != null ? va.getVocabAreaDescription() : "";
-            String objectName = va.getVocabAreaGif();
+            String objectName = va.getVocabAreaVideo();
             URL signedUrl = generateSignedUrl(objectName);
-            System.out.println("Processing vocab: " + word + " with gif: " + objectName);
-            FlashcardDTO.FrontDTO front = new FlashcardDTO.FrontDTO("image", signedUrl != null ? signedUrl.toString() : "", word);
+            System.out.println("Processing vocab: " + word + " with video: " + objectName);
+            FlashcardDTO.FrontDTO front = new FlashcardDTO.FrontDTO("video", signedUrl != null ? signedUrl.toString() : "", word);
             FlashcardDTO.BackDTO back = new FlashcardDTO.BackDTO(word.toUpperCase(), description);
             return new FlashcardDTO(va.getId(), front, back);
         }).collect(Collectors.toList());
@@ -92,9 +104,9 @@ public class FlashcardServiceImpl implements FlashcardService {
         return vocabAreas.stream().map(va -> {
             String word = va.getVocab().getVocab();
             String description = va.getVocabAreaDescription() != null ? va.getVocabAreaDescription() : "";
-            String objectName = va.getVocabAreaGif();
+            String objectName = va.getVocabAreaVideo();
             URL signedUrl = generateSignedUrl(objectName);
-            FlashcardDTO.FrontDTO front = new FlashcardDTO.FrontDTO("image", signedUrl != null ? signedUrl.toString() : "", word);
+            FlashcardDTO.FrontDTO front = new FlashcardDTO.FrontDTO("video", signedUrl != null ? signedUrl.toString() : "", word);
             FlashcardDTO.BackDTO back = new FlashcardDTO.BackDTO(word.toUpperCase(), description);
             return new FlashcardDTO(va.getId(), front, back);
         }).collect(Collectors.toList());
@@ -153,7 +165,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         List<PracticeQuestionsResponseDTO.PracticeQuestionDTO> questions = new ArrayList<>();
         for (VocabArea va : practiceRange) {
             String correctWord = va.getVocab().getVocab();
-            String objectName = va.getVocabAreaGif();
+            String objectName = va.getVocabAreaVideo();
             URL signedUrl = generateSignedUrl(objectName);
             String videoUrl = signedUrl != null ? signedUrl.toString() : "";
             String imageUrl = videoUrl;
@@ -165,7 +177,7 @@ public class FlashcardServiceImpl implements FlashcardService {
             for (int i = 0; i < Math.min(3, distractorAreas.size()); i++) {
                 VocabArea wrongVa = distractorAreas.get(i);
                 String wrongWord = wrongVa.getVocab().getVocab();
-                String wrongObjectName = wrongVa.getVocabAreaGif();
+                String wrongObjectName = wrongVa.getVocabAreaVideo();
                 URL wrongSignedUrl = generateSignedUrl(wrongObjectName);
                 String wrongVideoUrl = wrongSignedUrl != null ? wrongSignedUrl.toString() : "";
                 String wrongImageUrl = wrongVideoUrl;
@@ -193,7 +205,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         List<VocabArea> allVocabAreas = new ArrayList<>(vocabAreas);
         for (VocabArea va : vocabAreas) {
             String correctWord = va.getVocab().getVocab();
-            String objectName = va.getVocabAreaGif();
+            String objectName = va.getVocabAreaVideo();
             URL signedUrl = generateSignedUrl(objectName);
             String videoUrl = signedUrl != null ? signedUrl.toString() : "";
             String imageUrl = videoUrl;
@@ -205,7 +217,7 @@ public class FlashcardServiceImpl implements FlashcardService {
             for (int i = 0; i < Math.min(3, distractorAreas.size()); i++) {
                 VocabArea wrongVa = distractorAreas.get(i);
                 String wrongWord = wrongVa.getVocab().getVocab();
-                String wrongObjectName = wrongVa.getVocabAreaGif();
+                String wrongObjectName = wrongVa.getVocabAreaVideo();
                 URL wrongSignedUrl = generateSignedUrl(wrongObjectName);
                 String wrongVideoUrl = wrongSignedUrl != null ? wrongSignedUrl.toString() : "";
                 String wrongImageUrl = wrongVideoUrl;
@@ -247,7 +259,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         BlobId blobId = BlobId.of(bucketName, objectName);
         BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
         try {
-            return storage.signUrl(blobInfo, 15, TimeUnit.MINUTES, Storage.SignUrlOption.withV4Signature());
+            return storage.signUrl(blobInfo, 2, TimeUnit.HOURS, Storage.SignUrlOption.withV4Signature());
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -308,35 +320,119 @@ public class FlashcardServiceImpl implements FlashcardService {
     }
 
     @Override
+    public FlashcardProgressResponse getProgress(String subtopicId) {
+        return null;
+    }
+
+    @Override
     public FlashcardProgressResponse getProgress(String subtopicId, String userId) {
-        try {
-            Long subTopicId = Long.parseLong(subtopicId);
-            Long userIdLong = Long.parseLong(userId);
-            
-            // Kiểm tra xem user đã hoàn thành subtopic chưa
-            Optional<Progress> progress = progressRepository.findByCreatedBy_IdAndSubTopic_Id(userIdLong, subTopicId);
-            
-            boolean isCompleted = progress.isPresent() && progress.get().getIsComplete();
-            
-            return new FlashcardProgressResponse(
-                true,
-                "Progress retrieved successfully",
-                new ArrayList<>(), // Không lưu chi tiết flashcard
-                false, // Không lưu practice completion
-                null,  // Không lưu user choice
-                isCompleted ? 100 : 0
-            );
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new FlashcardProgressResponse(
-                false,
-                "Error retrieving progress: " + e.getMessage(),
-                new ArrayList<>(),
-                false,
-                null,
-                0
-            );
+        // Implementation for getProgress without userId parameter
+        return new FlashcardProgressResponse();
+    }
+
+    @Override
+    public List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestions(String subtopicId) {
+        // Lấy subtopic để biết topic ID
+        Optional<SubTopic> subTopic = subTopicRepository.findById(Long.parseLong(subtopicId));
+        if (subTopic.isEmpty()) {
+            return new ArrayList<>();
         }
+        
+        Long topicId = subTopic.get().getTopic().getId();
+        List<Sentence> sentences = sentenceRepository.findBySentenceTopicId(topicId);
+        
+        List<SentenceBuildingQuestionDTO> questions = new ArrayList<>();
+        
+        for (Sentence sentence : sentences) {
+            // Lấy các vocab liên quan đến sentence này
+            List<SentenceVocab> sentenceVocabs = sentenceVocabRepository.findBySentenceId(sentence.getId());
+            List<String> words = sentenceVocabs.stream()
+                    .map(sv -> sv.getVocab().getVocab())
+                    .collect(Collectors.toList());
+            
+            // Tạo câu đúng từ các từ đã học
+            String correctAnswer = String.join(" ", words);
+            
+            // Tạo danh sách từ có thể chọn (bao gồm cả từ sai)
+            List<String> allWords = new ArrayList<>(words);
+            
+            // Lấy từ vựng gây nhiễu từ bảng word (thay vì hardcode)
+            List<String> distractorWords = wordRepository.findRandomDistractorWords(4);
+            allWords.addAll(distractorWords);
+            
+            // Random thứ tự các từ trong danh sách lựa chọn
+            Collections.shuffle(allWords);
+            
+            // Tạo signed URL cho video
+            String objectName = sentence.getSentenceVideo();
+            URL signedUrl = generateSignedUrl(objectName);
+            String videoUrl = signedUrl != null ? signedUrl.toString() : "";
+            
+            SentenceBuildingQuestionDTO question = SentenceBuildingQuestionDTO.builder()
+                    .id(sentence.getId())
+                    .videoUrl(videoUrl)
+                    .imageUrl(videoUrl)
+                    .question("Ghép câu theo video:")
+                    .words(allWords)
+                    .correctSentence(words)
+                    .correctAnswer(correctAnswer)
+                    .build();
+            
+            questions.add(question);
+        }
+        
+        return questions;
+    }
+    
+    @Override
+    public boolean hasSentenceBuildingForTopic(Long topicId) {
+        return sentenceRepository.existsBySentenceTopicId(topicId);
+    }
+    
+    @Override
+    public List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestionsForTopic(Long topicId) {
+        List<Sentence> sentences = sentenceRepository.findBySentenceTopicId(topicId);
+        
+        List<SentenceBuildingQuestionDTO> questions = new ArrayList<>();
+        
+        for (Sentence sentence : sentences) {
+            // Lấy các vocab liên quan đến sentence này
+            List<SentenceVocab> sentenceVocabs = sentenceVocabRepository.findBySentenceId(sentence.getId());
+            List<String> words = sentenceVocabs.stream()
+                    .map(sv -> sv.getVocab().getVocab())
+                    .collect(Collectors.toList());
+            
+            // Tạo câu đúng từ các từ đã học
+            String correctAnswer = String.join(" ", words);
+            
+            // Tạo danh sách từ có thể chọn (bao gồm cả từ sai)
+            List<String> allWords = new ArrayList<>(words);
+            
+            // Lấy từ vựng gây nhiễu từ bảng word (thay vì hardcode)
+            List<String> distractorWords = wordRepository.findRandomDistractorWords(4); // Lấy 4 từ gây nhiễu
+            allWords.addAll(distractorWords);
+            
+            // Random thứ tự các từ trong danh sách lựa chọn
+            Collections.shuffle(allWords);
+            
+            // Tạo signed URL cho video
+            String objectName = sentence.getSentenceVideo();
+            URL signedUrl = generateSignedUrl(objectName);
+            String videoUrl = signedUrl != null ? signedUrl.toString() : "";
+            
+            SentenceBuildingQuestionDTO question = SentenceBuildingQuestionDTO.builder()
+                    .id(sentence.getId())
+                    .videoUrl(videoUrl)
+                    .imageUrl(videoUrl)
+                    .question("Ghép câu theo video:")
+                    .words(allWords)
+                    .correctSentence(words)
+                    .correctAnswer(correctAnswer)
+                    .build();
+            
+            questions.add(question);
+        }
+        
+        return questions;
     }
 } 

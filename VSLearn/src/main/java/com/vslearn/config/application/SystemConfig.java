@@ -30,6 +30,7 @@ public class SystemConfig implements WebMvcConfigurer {
             .and()
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/flashcards/**").permitAll()
+                .requestMatchers("/api/feedback/**").permitAll()
                 .requestMatchers("/public/**").permitAll()
                 .requestMatchers("/learning-path/**").permitAll()
                 .requestMatchers("/progress/**").permitAll()
