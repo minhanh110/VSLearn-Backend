@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.Optional;
 import java.time.Instant;
+import java.util.Map;
 
 @Service
 public class FlashcardServiceImpl implements FlashcardService {
@@ -244,11 +245,18 @@ public class FlashcardServiceImpl implements FlashcardService {
             throw new ResourceNotFoundException("Subtopic not found", subtopicId);
         }
         com.vslearn.entities.SubTopic st = subTopic.get();
+        
+        // Đếm số flashcards trong subtopic này
+        List<VocabArea> vocabAreas = vocabAreaRepository.findByVocabSubTopicId(st.getId());
+        int totalFlashcards = vocabAreas.size();
+        
         return new SubtopicInfoDTO(
             st.getId(),
             st.getSubTopicName(),
+            st.getTopic().getId(),
             st.getTopic().getTopicName(),
-            st.getStatus()
+            st.getStatus(),
+            totalFlashcards
         );
     }
 
@@ -268,9 +276,15 @@ public class FlashcardServiceImpl implements FlashcardService {
 
     @Override
     public FlashcardProgressResponse saveProgress(String subtopicId, FlashcardProgressSaveRequest request) {
+        System.out.println("=== saveProgress called ===");
+        System.out.println("subtopicId: " + subtopicId);
+        System.out.println("request: " + request);
+        
         try {
             Long subTopicId = Long.parseLong(subtopicId);
             Long userId = Long.parseLong(request.getUserId());
+            
+            System.out.println("Parsed IDs - subTopicId: " + subTopicId + ", userId: " + userId);
             
             // Lấy subtopic và user
             SubTopic subTopic = subTopicRepository.findById(subTopicId)
@@ -278,24 +292,32 @@ public class FlashcardServiceImpl implements FlashcardService {
             User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found", userId));
             
+            System.out.println("Found entities - subTopic: " + subTopic.getSubTopicName() + ", user: " + user.getUserName());
+            
             // Kiểm tra xem đã có progress chưa
             Optional<Progress> existingProgress = progressRepository.findByCreatedBy_IdAndSubTopic_Id(userId, subTopicId);
             
             if (existingProgress.isPresent()) {
                 // Cập nhật progress hiện có
+                System.out.println("Updating existing progress");
                 Progress progress = existingProgress.get();
                 progress.setIsComplete(true);
-                progressRepository.save(progress);
+                Progress savedProgress = progressRepository.save(progress);
+                System.out.println("Updated progress saved with ID: " + savedProgress.getId());
             } else {
                 // Tạo progress mới
+                System.out.println("Creating new progress");
                 Progress progress = Progress.builder()
                     .subTopic(subTopic)
                     .createdBy(user)
                     .isComplete(true)
                     .createdAt(Instant.now())
                     .build();
-                progressRepository.save(progress);
+                Progress savedProgress = progressRepository.save(progress);
+                System.out.println("New progress saved with ID: " + savedProgress.getId());
             }
+            
+            System.out.println("Progress saved successfully");
             
             return new FlashcardProgressResponse(
                 true,
@@ -307,6 +329,7 @@ public class FlashcardServiceImpl implements FlashcardService {
             );
             
         } catch (Exception e) {
+            System.err.println("❌ Error saving progress: " + e.getMessage());
             e.printStackTrace();
             return new FlashcardProgressResponse(
                 false,
@@ -434,5 +457,57 @@ public class FlashcardServiceImpl implements FlashcardService {
         }
         
         return questions;
+    }
+
+    @Override
+    public Map<String, Object> getNextSubtopic(String subtopicId) {
+        System.out.println("=== getNextSubtopic called with subtopicId: " + subtopicId + " ===");
+        try {
+            Long currentSubtopicId = Long.parseLong(subtopicId);
+            Optional<SubTopic> currentSubtopic = subTopicRepository.findById(currentSubtopicId);
+            
+            if (currentSubtopic.isEmpty()) {
+                System.out.println("❌ Current subtopic not found");
+                return Map.of("hasNext", false);
+            }
+            
+            SubTopic current = currentSubtopic.get();
+            System.out.println("✅ Current subtopic found: " + current.getSubTopicName());
+            System.out.println("  - Topic ID: " + current.getTopic().getId());
+            System.out.println("  - Sort Order: " + current.getSortOrder());
+            System.out.println("  - Status: " + current.getStatus());
+            
+            // Lấy tất cả subtopics trong cùng topic
+            List<SubTopic> allSubtopicsInTopic = subTopicRepository.findByTopic_Id(current.getTopic().getId());
+            System.out.println("📊 Found " + allSubtopicsInTopic.size() + " subtopics in same topic");
+            
+            // Tìm subtopic tiếp theo có sort_order lớn hơn và status approve
+            Optional<SubTopic> nextSubtopic = allSubtopicsInTopic.stream()
+                .filter(st -> st.getSortOrder() > current.getSortOrder() && 
+                             "approve".equals(st.getStatus()) && 
+                             st.getDeletedAt() == null)
+                .findFirst();
+            
+            if (nextSubtopic.isPresent()) {
+                SubTopic next = nextSubtopic.get();
+                System.out.println("✅ Next subtopic found: " + next.getSubTopicName());
+                System.out.println("  - Next ID: " + next.getId());
+                System.out.println("  - Next Sort Order: " + next.getSortOrder());
+                return Map.of(
+                    "hasNext", true,
+                    "nextSubtopicId", next.getId().toString(),
+                    "nextSubtopicName", next.getSubTopicName(),
+                    "topicName", next.getTopic().getTopicName()
+                );
+            } else {
+                System.out.println("❌ No next subtopic found");
+                return Map.of("hasNext", false);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error getting next subtopic: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("hasNext", false);
+        }
     }
 } 

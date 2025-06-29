@@ -9,6 +9,7 @@ import com.vslearn.dto.response.FlashcardProgressResponse;
 import com.vslearn.dto.request.FlashcardProgressSaveRequest;
 import com.vslearn.dto.response.SentenceBuildingQuestionDTO;
 import java.util.List;
+import java.util.Map;
 
 public interface FlashcardService {
     List<FlashcardDTO> getFlashcardsForSubtopic(String subtopicId);
@@ -28,6 +29,8 @@ public interface FlashcardService {
     boolean hasSentenceBuildingForTopic(Long topicId);
     
     List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestionsForTopic(Long topicId);
+
+    Map<String, Object> getNextSubtopic(String subtopicId);
 }
     // endpoint debug
     // Object debugSubtopicFlashcards(String subtopicId);
