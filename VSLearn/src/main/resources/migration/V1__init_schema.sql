@@ -470,7 +470,27 @@ INSERT INTO sentence (sentence_video, sentence_description, sentence_type, sente
 
 
 -- Thêm sentence_vocab để liên kết sentence với vocab
-INSERT INTO sentence_vocab (sentence_id, vocab_id, created_at, created_by) VALUES
-                                                                               (1, (SELECT id FROM vocab WHERE vocab = 'Bạn' AND sub_topic_id = 7), NOW(), 1),
-                                                                               (1, (SELECT id FROM vocab WHERE vocab = 'Tên là gì' AND sub_topic_id = 7), NOW(), 1);
+INSERT INTO sentence_vocab (sentence_id, vocab_id, created_at, created_by) 
+SELECT 1, v.id, NOW(), 1
+FROM vocab v 
+WHERE v.vocab = 'Bạn' AND v.sub_topic_id = 7;
 
+INSERT INTO sentence_vocab (sentence_id, vocab_id, created_at, created_by) 
+SELECT 1, v.id, NOW(), 1
+FROM vocab v 
+WHERE v.vocab = 'Tên là gì' AND v.sub_topic_id = 7;
+
+INSERT INTO sentence (sentence_video, sentence_description, sentence_type, sentence_topic_id, created_at, created_by) VALUES
+    ('Topic_2_sentence_Bản thân/Bạn bao nhiêu tuổi.mp4', 'Bạn bao nhiêu tuổi', 'Câu hỏi', 2, NOW(), 1);
+
+
+-- Thêm sentence_vocab để liên kết sentence với vocab
+INSERT INTO sentence_vocab (sentence_id, vocab_id, created_at, created_by) 
+SELECT 2, v.id, NOW(), 1
+FROM vocab v 
+WHERE v.vocab = 'Bao nhiêu tuổi' AND v.sub_topic_id = 7;
+
+-- Xóa chữ "Bạn" khỏi sentence id = 2
+DELETE sv FROM sentence_vocab sv
+JOIN vocab v ON sv.vocab_id = v.id
+WHERE sv.sentence_id = 2 AND v.vocab = 'Bạn' AND v.sub_topic_id = 7;
