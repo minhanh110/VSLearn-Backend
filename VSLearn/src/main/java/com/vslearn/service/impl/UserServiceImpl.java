@@ -15,6 +15,7 @@ import com.vslearn.exception.customizeException.AddingFailException;
 import com.vslearn.exception.customizeException.AuthenticationFailException;
 import com.vslearn.exception.customizeException.ResourceNotFoundException;
 import com.vslearn.repository.UserRepository;
+import com.vslearn.repository.TransactionRepository;
 import com.vslearn.service.UserService;
 import com.vslearn.utils.JwtUtil;
 import com.vslearn.utils.MailUtils;
@@ -49,8 +50,11 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private MailUtils mailUtils;
 
+    @Autowired
+    private TransactionRepository transactionRepository;
+
     @Override
-    public ResponseEntity<?> signin(UserLoginDTO userLoginDTO) {
+    public ResponseEntity<ResponseData<?>> signin(UserLoginDTO userLoginDTO) {
         User user = userRepository.findByUserName(userLoginDTO.getUsername())
                 .orElseThrow(() -> new AuthenticationFailException("Tài khoản hoặc mật khẩu không đúng", userLoginDTO));
         if (!passwordEncoder.matches(userLoginDTO.getPassword(), user.getUserPassword())) {
@@ -64,7 +68,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> signup(UserDataDTO dto) {
+    public ResponseEntity<ResponseData<?>> signup(UserDataDTO dto) {
         // Check if username exists
         if (userRepository.existsByUserName(dto.getUsername())) {
             throw new AddingFailException("Tên đăng nhập đã tồn tại", dto);
@@ -106,7 +110,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> requestSignupOtp(String email) {
+    public ResponseEntity<ResponseData<?>> requestSignupOtp(String email) {
         // Check if email is already registered and active
         Optional<User> existingUser = userRepository.findByUserEmail(email);
         if (existingUser.isPresent() && existingUser.get().getIsActive()) {
@@ -156,7 +160,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> verifySignupOtp(VerifySignupOtpDTO dto) {
+    public ResponseEntity<ResponseData<?>> verifySignupOtp(VerifySignupOtpDTO dto) {
         User user = userRepository.findByUserEmail(dto.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Email chưa được đăng ký", dto.getEmail()));
 
@@ -182,7 +186,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> updateProfile(String authHeader, UpdateProfileDTO dto) {
+    public ResponseEntity<ResponseData<?>> updateProfile(String authHeader, UpdateProfileDTO dto) {
         String token = null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
@@ -191,6 +195,14 @@ public class UserServiceImpl implements UserService {
         Long userId = Long.parseLong((String)claimsSet.getClaims().get("id"));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId, dto));
+
+        // Check if phone number is already used by another user
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
+            Optional<User> existingUserWithPhone = userRepository.findByPhoneNumber(dto.getPhoneNumber());
+            if (existingUserWithPhone.isPresent() && !existingUserWithPhone.get().getId().equals(userId)) {
+                throw new AddingFailException("Số điện thoại đã được đăng ký bởi tài khoản khác", dto);
+            }
+        }
 
         // Update user information
         user.setFirstName(dto.getFirstName());
@@ -203,13 +215,13 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Profile updated successfully!")
+                .message("Cập nhật hồ sơ thành công!")
                 .data(updatedUser)
                 .build());
     }
 
     @Override
-    public ResponseEntity<?> getProfile(String authHeader) {
+    public ResponseEntity<ResponseData<?>> getProfile(String authHeader) {
         String token = null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
@@ -226,13 +238,13 @@ public class UserServiceImpl implements UserService {
                 .build();
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Profile get successfully!")
+                .message("Lấy thông tin hồ sơ thành công!")
                 .data(profileDTO)
                 .build());
     }
 
     @Override
-    public ResponseEntity<?> changePassword(String authHeader, ChangePasswordDTO dto) {
+    public ResponseEntity<ResponseData<?>> changePassword(String authHeader, ChangePasswordDTO dto) {
         String token = null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
@@ -243,16 +255,16 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getUserPassword())) {
-            throw new AuthenticationFailException("Current password is incorrect", dto);
+            throw new AuthenticationFailException("Mật khẩu hiện tại không chính xác", dto);
         }
 
         if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
-            throw new AddingFailException("New password and confirm password do not match", dto);
+            throw new AddingFailException("Mật khẩu mới và xác nhận mật khẩu không khớp", dto);
         }
 
         // Check if new password is same as current password
         if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
-            throw new AddingFailException("New password must be different from current password", dto);
+            throw new AddingFailException("Mật khẩu mới phải khác mật khẩu hiện tại", dto);
         }
 
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
@@ -261,12 +273,12 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Password changed successfully")
+                .message("Đổi mật khẩu thành công")
                 .build());
     }
 
     @Override
-    public ResponseEntity<?> requestPasswordReset(ForgotPasswordDTO dto) {
+    public ResponseEntity<ResponseData<?>> requestPasswordReset(ForgotPasswordDTO dto) {
         User user = userRepository.findByUserEmail(dto.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + dto.getEmail()));
 
@@ -288,24 +300,29 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ResponseEntity<?> verifyOtpAndResetPassword(ResetPasswordDTO dto) {
+    public ResponseEntity<ResponseData<?>> verifyOtpAndResetPassword(ResetPasswordDTO dto) {
+        // Check if OTP is provided
+        if (dto.getOtp() == null || dto.getOtp().trim().isEmpty()) {
+            throw new AddingFailException("Mã OTP không được để trống", dto);
+        }
+
         User user = userRepository.findByActiveCode(dto.getOtp())
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired OTP"));
+                .orElseThrow(() -> new ResourceNotFoundException("Mã OTP không hợp lệ hoặc đã hết hạn", dto.getOtp()));
 
         if (user.getModifyTime().isBefore(Instant.now())) {
             user.setModifyTime(null);
             user.setActiveCode(null);
             userRepository.save(user);
-            throw new AuthenticationFailException("OTP has expired", dto);
+            throw new AuthenticationFailException("Mã OTP đã hết hạn", dto);
         }
 
         if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
-            throw new AuthenticationFailException("New password and confirm password do not match", dto);
+            throw new AuthenticationFailException("Mật khẩu mới và xác nhận mật khẩu không khớp", dto);
         }
 
         // Check if new password is same as current password
         if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
-            throw new AuthenticationFailException("New password must be different from current password", dto);
+            throw new AuthenticationFailException("Mật khẩu mới phải khác mật khẩu hiện tại", dto);
         }
 
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
@@ -316,12 +333,12 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Password has been reset successfully")
+                .message("Đặt lại mật khẩu thành công")
                 .build());
     }
 
     @Override
-    public ResponseEntity<?> handleOAuth2Login(String email, String name) {
+    public ResponseEntity<ResponseData<?>> handleOAuth2Login(String email, String name) {
         User user = userRepository.findByUserEmail(email)
                 .orElseGet(() -> {
                     // Tạo user mới nếu chưa tồn tại
@@ -345,6 +362,102 @@ public class UserServiceImpl implements UserService {
                 .message("Đăng nhập thành công")
                 .data(jwtUtil.generateToken(user.getId()+"", user.getUserEmail(), user.getUserRole()))
                 .build());
+    }
+
+    @Override
+    public ResponseEntity<ResponseData<?>> getSubscriptionStatus(String authHeader) {
+        try {
+            // Nếu không có Authorization header, trả về guest user
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("Guest user")
+                        .data(java.util.Map.of(
+                            "hasSubscription", false,
+                            "userType", "guest",
+                            "maxTopics", 1
+                        ))
+                        .build());
+            }
+            String token = authHeader.replace("Bearer ", "");
+            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            if (userId == null) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(400)
+                        .message("Invalid token")
+                        .data(null)
+                        .build());
+            }
+            User user = userRepository.findById(Long.parseLong(userId)).orElse(null);
+            if (user == null) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(404)
+                        .message("User not found")
+                        .data(null)
+                        .build());
+            }
+            // Kiểm tra subscription
+            java.util.List<com.vslearn.entities.Transaction> userTransactions = transactionRepository.findByCreatedBy_Id(user.getId());
+            if (userTransactions.isEmpty()) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("No subscription found")
+                        .data(java.util.Map.of(
+                            "hasSubscription", false,
+                            "userType", "registered",
+                            "maxTopics", 2
+                        ))
+                        .build());
+            }
+            // Sắp xếp theo thời gian tạo, lấy transaction mới nhất
+            com.vslearn.entities.Transaction latestTransaction = userTransactions.stream()
+                    .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
+                    .findFirst()
+                    .orElse(null);
+            if (latestTransaction == null) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("No valid subscription found")
+                        .data(java.util.Map.of(
+                            "hasSubscription", false,
+                            "userType", "registered",
+                            "maxTopics", 2
+                        ))
+                        .build());
+            }
+            java.time.Instant now = java.time.Instant.now();
+            boolean isValid = now.isAfter(latestTransaction.getStartDate()) && now.isBefore(latestTransaction.getEndDate());
+            if (isValid) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("Valid subscription found")
+                        .data(java.util.Map.of(
+                            "hasSubscription", true,
+                            "userType", "premium",
+                            "maxTopics", Integer.MAX_VALUE,
+                            "subscriptionEndDate", latestTransaction.getEndDate(),
+                            "pricingType", latestTransaction.getPricing().getPricingType()
+                        ))
+                        .build());
+            } else {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("Subscription expired")
+                        .data(java.util.Map.of(
+                            "hasSubscription", false,
+                            "userType", "registered",
+                            "maxTopics", 2,
+                            "expiredDate", latestTransaction.getEndDate()
+                        ))
+                        .build());
+            }
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(500)
+                    .message("Internal server error: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
     }
 
 }

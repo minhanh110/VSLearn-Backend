@@ -30,6 +30,7 @@ public class SystemConfig implements WebMvcConfigurer {
             .and()
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/flashcards/**").permitAll()
+                .requestMatchers("/api/feedback/**").permitAll()
                 .requestMatchers("/public/**").permitAll()
                 .requestMatchers("/learning-path/**").permitAll()
                 .requestMatchers("/progress/**").permitAll()
@@ -75,7 +76,7 @@ public class SystemConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:3000")
+                .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

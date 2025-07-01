@@ -8,11 +8,14 @@ import com.vslearn.exception.customizeException.ResourceNotFoundException;
 import com.vslearn.exception.customizeException.UnAuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.Date;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class RestControllerGlobalExceptionHandler {
@@ -56,6 +59,27 @@ public class RestControllerGlobalExceptionHandler {
                     .message(e.getMessage())
                     .build();
         }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleValidationException(MethodArgumentNotValidException e, WebRequest request) {
+        // Get first validation error message
+        String errorMessage = e.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(FieldError::getDefaultMessage)
+                .findFirst()
+                .orElse("Dữ liệu không hợp lệ");
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(new Date())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .path(request.getDescription(true))
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(errorMessage)
+                .build();
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 }

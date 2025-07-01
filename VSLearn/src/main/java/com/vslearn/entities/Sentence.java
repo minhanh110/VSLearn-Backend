@@ -16,7 +16,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "sentence", indexes = {
-        @Index(name = "sentence_sub_topic_id", columnList = "sentence_sub_topic_id")
+        @Index(name = "sentence_topic_id", columnList = "sentence_topic_id")
 })
 public class Sentence {
     @Id
@@ -24,8 +24,8 @@ public class Sentence {
     private Long id;
 
     @Size(max = 255)
-    @Column(name = "sentence_gif")
-    private String sentenceGif;
+    @Column(name = "sentence_video")
+    private String sentenceVideo;
 
     @Lob
     @Column(name = "sentence_description")
@@ -38,8 +38,8 @@ public class Sentence {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "sentence_sub_topic_id", nullable = false)
-    private SubTopic sentenceSubTopic;
+    @JoinColumn(name = "sentence_topic_id", nullable = false)
+    private Topic sentenceTopic;
 
     @Column(name = "created_at")
     private Instant createdAt;

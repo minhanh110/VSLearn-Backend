@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 
@@ -35,6 +36,10 @@ public class Topic {
     @NotNull
     @Column(name = "status", nullable = false)
     private String status;
+
+    @ColumnDefault("'0'")
+    @Column(name = "sort_order", columnDefinition = "int UNSIGNED not null")
+    private Long sortOrder;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
