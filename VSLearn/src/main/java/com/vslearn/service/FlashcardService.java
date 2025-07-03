@@ -13,13 +13,21 @@ import java.util.Map;
 
 public interface FlashcardService {
     List<FlashcardDTO> getFlashcardsForSubtopic(String subtopicId);
+    
     List<FlashcardDTO> getFlashcardsForArea(String areaId);
+
     long getWordCountBySubtopicId(Long subtopicId);
+
     TimelineResponseDTO generateTimeline(String subtopicId);
+
     PracticeQuestionsResponseDTO generatePracticeQuestions(String subtopicId, int start, int end);
+
     List<PracticeQuestionDTO> getPracticeQuestionsForSubtopic(String subtopicId);
+
     SubtopicInfoDTO getSubtopicInfo(String subtopicId);
+
     FlashcardProgressResponse saveProgress(String subtopicId, FlashcardProgressSaveRequest request);
+
     FlashcardProgressResponse getProgress(String subtopicId);
 
     FlashcardProgressResponse getProgress(String subtopicId, String userId);

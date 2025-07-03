@@ -282,17 +282,33 @@ public class FlashcardServiceImpl implements FlashcardService {
         
         try {
             Long subTopicId = Long.parseLong(subtopicId);
-            Long userId = Long.parseLong(request.getUserId());
             
-            System.out.println("Parsed IDs - subTopicId: " + subTopicId + ", userId: " + userId);
-            
-            // Lấy subtopic và user
+            // Lấy subtopic
             SubTopic subTopic = subTopicRepository.findById(subTopicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subtopic not found", subTopicId));
+            
+            System.out.println("Found subtopic: " + subTopic.getSubTopicName());
+            
+            // Kiểm tra xem có phải guest user không
+            if ("default-user".equals(request.getUserId())) {
+                System.out.println("Guest user detected, skipping progress save to database");
+                // Đối với guest users, chỉ trả về response thành công mà không lưu vào database
+                return new FlashcardProgressResponse(
+                    true,
+                    "Progress saved successfully (guest user)",
+                    request.getCompletedFlashcards(),
+                    request.getCompletedPractice(),
+                    request.getUserChoice(),
+                    100 // Đã hoàn thành subtopic
+                );
+            }
+            
+            // Đối với authenticated users, lưu progress vào database
+            Long userId = Long.parseLong(request.getUserId());
             User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found", userId));
             
-            System.out.println("Found entities - subTopic: " + subTopic.getSubTopicName() + ", user: " + user.getUserName());
+            System.out.println("Found user: " + user.getUserName());
             
             // Kiểm tra xem đã có progress chưa
             Optional<Progress> existingProgress = progressRepository.findByCreatedBy_IdAndSubTopic_Id(userId, subTopicId);
@@ -349,8 +365,65 @@ public class FlashcardServiceImpl implements FlashcardService {
 
     @Override
     public FlashcardProgressResponse getProgress(String subtopicId, String userId) {
-        // Implementation for getProgress without userId parameter
-        return new FlashcardProgressResponse();
+        System.out.println("=== getProgress called ===");
+        System.out.println("subtopicId: " + subtopicId);
+        System.out.println("userId: " + userId);
+        
+        try {
+            Long subTopicId = Long.parseLong(subtopicId);
+            
+            // Kiểm tra xem có phải guest user không
+            if ("default-user".equals(userId)) {
+                System.out.println("Guest user detected, returning empty progress");
+                // Đối với guest users, trả về progress rỗng
+                return new FlashcardProgressResponse(
+                    true,
+                    "Guest user - no progress data",
+                    new ArrayList<>(),
+                    false,
+                    null,
+                    0
+                );
+            }
+            
+            // Đối với authenticated users, lấy progress từ database
+            Long userIdLong = Long.parseLong(userId);
+            Optional<Progress> progress = progressRepository.findByCreatedBy_IdAndSubTopic_Id(userIdLong, subTopicId);
+            
+            if (progress.isPresent() && progress.get().getIsComplete()) {
+                System.out.println("Found completed progress for user");
+                return new FlashcardProgressResponse(
+                    true,
+                    "Progress found",
+                    new ArrayList<>(),
+                    true,
+                    null,
+                    100
+                );
+            } else {
+                System.out.println("No progress found for user");
+                return new FlashcardProgressResponse(
+                    true,
+                    "No progress found",
+                    new ArrayList<>(),
+                    false,
+                    null,
+                    0
+                );
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error getting progress: " + e.getMessage());
+            e.printStackTrace();
+            return new FlashcardProgressResponse(
+                false,
+                "Error getting progress: " + e.getMessage(),
+                new ArrayList<>(),
+                false,
+                null,
+                0
+            );
+        }
     }
 
     @Override
