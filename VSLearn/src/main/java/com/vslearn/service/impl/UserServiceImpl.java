@@ -196,6 +196,14 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId, dto));
 
+        // Check if phone number is already used by another user
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
+            Optional<User> existingUserWithPhone = userRepository.findByPhoneNumber(dto.getPhoneNumber());
+            if (existingUserWithPhone.isPresent() && !existingUserWithPhone.get().getId().equals(userId)) {
+                throw new AddingFailException("Số điện thoại đã được đăng ký bởi tài khoản khác", dto);
+            }
+        }
+
         // Update user information
         user.setFirstName(dto.getFirstName());
         user.setLastName(dto.getLastName());
@@ -207,7 +215,7 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Profile updated successfully!")
+                .message("Cập nhật hồ sơ thành công!")
                 .data(updatedUser)
                 .build());
     }
@@ -230,7 +238,7 @@ public class UserServiceImpl implements UserService {
                 .build();
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Profile get successfully!")
+                .message("Lấy thông tin hồ sơ thành công!")
                 .data(profileDTO)
                 .build());
     }
@@ -247,16 +255,16 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getUserPassword())) {
-            throw new AuthenticationFailException("Current password is incorrect", dto);
+            throw new AuthenticationFailException("Mật khẩu hiện tại không chính xác", dto);
         }
 
         if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
-            throw new AddingFailException("New password and confirm password do not match", dto);
+            throw new AddingFailException("Mật khẩu mới và xác nhận mật khẩu không khớp", dto);
         }
 
         // Check if new password is same as current password
         if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
-            throw new AddingFailException("New password must be different from current password", dto);
+            throw new AddingFailException("Mật khẩu mới phải khác mật khẩu hiện tại", dto);
         }
 
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
@@ -265,7 +273,7 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Password changed successfully")
+                .message("Đổi mật khẩu thành công")
                 .build());
     }
 
@@ -293,23 +301,28 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<ResponseData<?>> verifyOtpAndResetPassword(ResetPasswordDTO dto) {
+        // Check if OTP is provided
+        if (dto.getOtp() == null || dto.getOtp().trim().isEmpty()) {
+            throw new AddingFailException("Mã OTP không được để trống", dto);
+        }
+
         User user = userRepository.findByActiveCode(dto.getOtp())
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired OTP"));
+                .orElseThrow(() -> new ResourceNotFoundException("Mã OTP không hợp lệ hoặc đã hết hạn", dto.getOtp()));
 
         if (user.getModifyTime().isBefore(Instant.now())) {
             user.setModifyTime(null);
             user.setActiveCode(null);
             userRepository.save(user);
-            throw new AuthenticationFailException("OTP has expired", dto);
+            throw new AuthenticationFailException("Mã OTP đã hết hạn", dto);
         }
 
         if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
-            throw new AuthenticationFailException("New password and confirm password do not match", dto);
+            throw new AuthenticationFailException("Mật khẩu mới và xác nhận mật khẩu không khớp", dto);
         }
 
         // Check if new password is same as current password
         if (passwordEncoder.matches(dto.getNewPassword(), user.getUserPassword())) {
-            throw new AuthenticationFailException("New password must be different from current password", dto);
+            throw new AuthenticationFailException("Mật khẩu mới phải khác mật khẩu hiện tại", dto);
         }
 
         user.setUserPassword(passwordEncoder.encode(dto.getNewPassword()));
@@ -320,7 +333,7 @@ public class UserServiceImpl implements UserService {
 
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
-                .message("Password has been reset successfully")
+                .message("Đặt lại mật khẩu thành công")
                 .build());
     }
 

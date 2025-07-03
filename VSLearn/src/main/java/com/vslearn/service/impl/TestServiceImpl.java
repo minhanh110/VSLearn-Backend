@@ -543,22 +543,27 @@ public class TestServiceImpl implements TestService {
             User user = userRepository.findById(userId).orElse(null);
             if (user == null) return false;
             
-            // Get all subtopics for this topic
+            // Get test subtopic for this topic
             List<SubTopic> subTopics = subTopicRepository.findByTopic_Id(topicId);
+            SubTopic testSubtopic = subTopics.stream()
+                .filter(st -> st.getStatus() != null && st.getStatus().toLowerCase().contains("test"))
+                .findFirst()
+                .orElse(null);
             
-            // Mark all subtopics as completed
-            for (SubTopic subTopic : subTopics) {
+            if (testSubtopic != null) {
+                // Mark only the test as completed
                 Progress progress = Progress.builder()
-                    .subTopic(subTopic)
+                    .subTopic(testSubtopic)
                     .createdBy(user)
                     .isComplete(true)
                     .createdAt(Instant.now())
                     .build();
                 
                 progressRepository.save(progress);
+                return true;
             }
             
-            return true;
+            return false;
         } catch (Exception e) {
             e.printStackTrace();
             return false;

@@ -1,40 +1,36 @@
 package com.vslearn.controller;
 
-import com.vslearn.dto.response.FlashcardDTO;
-import com.vslearn.dto.response.SubtopicInfoDTO;
-import com.vslearn.dto.response.ResponseData;
-import com.vslearn.dto.response.TimelineResponseDTO;
-import com.vslearn.dto.response.PracticeQuestionsResponseDTO;
-import com.vslearn.entities.SubTopic;
-import com.vslearn.entities.VocabArea;
+import com.vslearn.dto.request.FlashcardProgressSaveRequest;
+import com.vslearn.dto.response.*;
 import com.vslearn.service.FlashcardService;
-import com.vslearn.repository.SubTopicRepository;
-import com.vslearn.repository.VocabAreaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.vslearn.dto.response.PracticeQuestionDTO;
-import com.vslearn.dto.response.FlashcardProgressResponse;
-import com.vslearn.dto.request.FlashcardProgressSaveRequest;
-import com.vslearn.dto.response.SentenceBuildingQuestionDTO;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.HashMap;
 import java.util.stream.Collectors;
-import java.net.URL;
+import java.util.ArrayList;
 
-
+import com.vslearn.entities.Progress;
+import com.vslearn.repository.ProgressRepository;
+import com.vslearn.entities.SubTopic;
+import com.vslearn.repository.SubTopicRepository;
 
 @RestController
 @RequestMapping("/api/v1/flashcards")
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class FlashcardController {
     private final FlashcardService flashcardService;
+    private final ProgressRepository progressRepository;
+    private final SubTopicRepository subTopicRepository;
 
     @Autowired
-    public FlashcardController(FlashcardService flashcardService) {
+    public FlashcardController(FlashcardService flashcardService, ProgressRepository progressRepository, SubTopicRepository subTopicRepository) {
         this.flashcardService = flashcardService;
+        this.progressRepository = progressRepository;
+        this.subTopicRepository = subTopicRepository;
     }
 
     @GetMapping("/subtopic/{subtopicId}")
@@ -127,19 +123,63 @@ public class FlashcardController {
         return ResponseEntity.ok(questions);
     }
 
-    //  endpoint debug
-    // @GetMapping("/subtopic/{subtopicId}/debug")
-    // public ResponseEntity<?> debugSubtopicFlashcards(@PathVariable String subtopicId) {
-    //     return ResponseEntity.ok(flashcardService.debugSubtopicFlashcards(subtopicId));
-    // }
+    @GetMapping("/subtopic/{subtopicId}/next")
+    public ResponseEntity<Map<String, Object>> getNextSubtopic(@PathVariable String subtopicId) {
+        Map<String, Object> response = flashcardService.getNextSubtopic(subtopicId);
+        return ResponseEntity.ok(response);
+    }
 
-    // @GetMapping("/test/vocab-subtopic")
-    // public ResponseEntity<?> testVocabSubtopicMapping() {
-    //     return ResponseEntity.ok(flashcardService.testVocabSubtopicMapping());
-    // }
+    // Endpoint để lấy tất cả progress của user
+    @GetMapping("/user/progress")
+    public ResponseEntity<Map<String, Object>> getUserProgress(@RequestParam String userId) {
+        try {
+            Long userIdLong = Long.parseLong(userId);
+            
+            // Lấy tất cả progress của user
+            List<Progress> userProgress = progressRepository.findByCreatedBy_Id(userIdLong);
+            
+            // Lấy danh sách subtopic IDs đã hoàn thành
+            List<Long> completedSubtopicIds = userProgress.stream()
+                .filter(Progress::getIsComplete)
+                .map(p -> p.getSubTopic().getId())
+                .collect(Collectors.toList());
+            
+            Map<String, Object> response = Map.of(
+                "userId", userId,
+                "totalProgress", userProgress.size(),
+                "completedSubtopicIds", completedSubtopicIds,
+                "completedCount", completedSubtopicIds.size()
+            );
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "error", e.getMessage(),
+                "userId", userId
+            ));
+        }
+    }
 
-    // @GetMapping("/subtopic/{subtopicId}/word-count")
-    // public ResponseEntity<ResponseData<Integer>> getSubtopicWordCount(@PathVariable Long subtopicId) {
-    //     return flashcardService.getSubtopicWordCount(subtopicId);
-    // }
+    // Endpoint để lấy tất cả subtopics trong topic
+    @GetMapping("/topic/{topicId}/subtopics")
+    public ResponseEntity<?> getSubtopicsByTopic(@PathVariable Long topicId) {
+        try {
+            List<SubTopic> subtopics = subTopicRepository.findByTopic_Id(topicId);
+            
+            List<Map<String, Object>> response = subtopics.stream()
+                .map(st -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", st.getId());
+                    map.put("name", st.getSubTopicName());
+                    map.put("sortOrder", st.getSortOrder());
+                    map.put("status", st.getStatus());
+                    return map;
+                })
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of());
+        }
+    }
 }
