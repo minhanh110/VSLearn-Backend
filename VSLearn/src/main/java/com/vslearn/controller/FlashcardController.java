@@ -182,4 +182,35 @@ public class FlashcardController {
             return ResponseEntity.ok(List.of());
         }
     }
+
+    // Endpoint debug để kiểm tra tất cả subtopics trong topic
+    @GetMapping("/topic/{topicId}/subtopics/debug")
+    public ResponseEntity<?> getSubtopicsDebug(@PathVariable Long topicId) {
+        try {
+            List<SubTopic> subtopics = subTopicRepository.findByTopic_Id(topicId);
+            
+            List<Map<String, Object>> response = subtopics.stream()
+                .map(st -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", st.getId());
+                    map.put("name", st.getSubTopicName());
+                    map.put("sortOrder", st.getSortOrder());
+                    map.put("status", st.getStatus());
+                    map.put("deletedAt", st.getDeletedAt());
+                    return map;
+                })
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(Map.of(
+                "topicId", topicId,
+                "totalSubtopics", subtopics.size(),
+                "subtopics", response
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "error", e.getMessage(),
+                "topicId", topicId
+            ));
+        }
+    }
 }
