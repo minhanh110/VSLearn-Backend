@@ -183,6 +183,51 @@ public class FlashcardController {
         }
     }
 
+    // Endpoint để kiểm tra completion status của topic
+    @GetMapping("/topic/{topicId}/completion-status")
+    public ResponseEntity<Map<String, Object>> getTopicCompletionStatus(
+            @PathVariable Long topicId,
+            @RequestParam String userId) {
+        try {
+            Long userIdLong = Long.parseLong(userId);
+            
+            // Lấy tất cả subtopics trong topic
+            List<SubTopic> subtopics = subTopicRepository.findByTopic_Id(topicId);
+            
+            // Lấy tất cả progress của user
+            List<Progress> userProgress = progressRepository.findByCreatedBy_Id(userIdLong);
+            
+            // Lấy danh sách subtopic IDs đã hoàn thành
+            List<Long> completedSubtopicIds = userProgress.stream()
+                .filter(Progress::getIsComplete)
+                .map(p -> p.getSubTopic().getId())
+                .collect(Collectors.toList());
+            
+            // Kiểm tra xem tất cả subtopics đã hoàn thành chưa
+            boolean allSubtopicsCompleted = subtopics.stream()
+                .filter(st -> "approve".equals(st.getStatus()) && st.getDeletedAt() == null)
+                .allMatch(st -> completedSubtopicIds.contains(st.getId()));
+            
+            Map<String, Object> response = Map.of(
+                "topicId", topicId,
+                "userId", userId,
+                "totalSubtopics", subtopics.size(),
+                "completedSubtopicIds", completedSubtopicIds,
+                "completedCount", completedSubtopicIds.size(),
+                "allSubtopicsCompleted", allSubtopicsCompleted
+            );
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "error", e.getMessage(),
+                "topicId", topicId,
+                "userId", userId,
+                "allSubtopicsCompleted", false
+            ));
+        }
+    }
+
     // Endpoint debug để kiểm tra tất cả subtopics trong topic
     @GetMapping("/topic/{topicId}/subtopics/debug")
     public ResponseEntity<?> getSubtopicsDebug(@PathVariable Long topicId) {
