@@ -106,6 +106,10 @@ public class LearningPathServiceImpl implements LearningPathService {
                     boolean isLessonAccessible = checkLessonAccessibility(sub, topic, topicIndex, userInfo);
                     l.setAccessible(isTopicAccessible && isLessonAccessible);
                     
+                    // Check if lesson is completed
+                    boolean isLessonCompleted = userInfo.completedSubtopicIds.contains(sub.getId());
+                    l.setIsCompleted(isLessonCompleted);
+                    
                     return l;
                 }).collect(Collectors.toList());
                 
@@ -124,6 +128,11 @@ public class LearningPathServiceImpl implements LearningPathService {
                 boolean isTestAccessible = nonTestSubtopics.stream()
                     .allMatch(st -> userInfo.completedSubtopicIds.contains(st.getId()));
                 testLesson.setAccessible(isTopicAccessible && isTestAccessible);
+                
+                // Check if test is completed (score >= 90%)
+                boolean isTestCompleted = userInfo.testResults.stream()
+                    .anyMatch(tr -> tr.topicId.equals(topic.getId()) && tr.score >= 90.0);
+                testLesson.setIsCompleted(isTestCompleted);
                 
                 lessons.add(testLesson);
                 dto.setLessons(lessons);

@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.Optional;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Comparator;
 
 @Service
 public class FlashcardServiceImpl implements FlashcardService {
@@ -547,19 +548,19 @@ public class FlashcardServiceImpl implements FlashcardService {
             SubTopic current = currentSubtopic.get();
             System.out.println("✅ Current subtopic found: " + current.getSubTopicName());
             System.out.println("  - Topic ID: " + current.getTopic().getId());
-            System.out.println("  - Sort Order: " + current.getSortOrder());
+            System.out.println("  - Current ID: " + current.getId());
             System.out.println("  - Status: " + current.getStatus());
             
             // Lấy tất cả subtopics trong cùng topic
             List<SubTopic> allSubtopicsInTopic = subTopicRepository.findByTopic_Id(current.getTopic().getId());
             System.out.println("📊 Found " + allSubtopicsInTopic.size() + " subtopics in same topic");
             
-            // Tìm subtopic tiếp theo có sort_order lớn hơn và status approve
+            // Tìm subtopic tiếp theo có ID lớn hơn và status approve
             Optional<SubTopic> nextSubtopic = allSubtopicsInTopic.stream()
-                .filter(st -> st.getSortOrder() > current.getSortOrder() && 
+                .filter(st -> st.getId() > current.getId() && 
                              "approve".equals(st.getStatus()) && 
                              st.getDeletedAt() == null)
-                .findFirst();
+                .min(Comparator.comparing(SubTopic::getId)); // Lấy subtopic có ID nhỏ nhất trong số các subtopic có ID lớn hơn
             
             if (nextSubtopic.isPresent()) {
                 SubTopic next = nextSubtopic.get();
