@@ -8,6 +8,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
+import java.util.List;
 
 @Builder
 @AllArgsConstructor
@@ -27,6 +28,9 @@ public class Vocab {
     @NotNull
     @Column(name = "vocab", nullable = false)
     private String vocab;
+
+    @Column(name = "meaning", columnDefinition = "TEXT")
+    private String meaning;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -52,4 +56,6 @@ public class Vocab {
     @JoinColumn(name = "sub_topic_id")
     private SubTopic subTopic;
 
+    @OneToMany(mappedBy = "vocab", fetch = FetchType.LAZY)
+    private List<VocabArea> vocabAreas;
 }
