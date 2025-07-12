@@ -13,6 +13,7 @@ public interface TopicService {
     TopicDetailResponse getTopicDetail(Long topicId);
     TopicDetailResponse createTopic(TopicCreateRequest request);
     TopicDetailResponse updateTopic(Long topicId, TopicUpdateRequest request);
+    TopicDetailResponse updateTopicStatus(Long topicId, String newStatus);
     void disableTopic(Long topicId);
     List<TopicDetailResponse> getAllTopics();
 } 

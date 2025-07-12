@@ -24,4 +24,7 @@ public class VocabCreateRequest {
     private String description;
     private String videoLink;
     private String region;
+
+    // Thêm trường meaning
+    private String meaning;
 } 

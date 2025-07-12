@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,10 +43,10 @@ public class VocabController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String topic,
-            @RequestParam(required = false) String region) {
-        
+            @RequestParam(required = false) String region,
+            @RequestParam(required = false) String letter) {
         Pageable pageable = PageRequest.of(page, size);
-        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region);
+        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region, letter);
         return ResponseEntity.ok(response);
     }
 
@@ -56,12 +57,12 @@ public class VocabController {
         if (vocab.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
         VocabDetailResponse response = vocabService.getVocabDetail(vocabId);
         return ResponseEntity.ok(response);
     }
 
     // Tạo từ vựng mới
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createVocab(@RequestBody VocabCreateRequest request) {
         try {
@@ -80,6 +81,7 @@ public class VocabController {
     }
 
     // Cập nhật từ vựng
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PutMapping("/{vocabId}")
     public ResponseEntity<Map<String, Object>> updateVocab(
             @PathVariable Long vocabId,
@@ -100,6 +102,7 @@ public class VocabController {
     }
 
     // Vô hiệu hóa từ vựng
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @DeleteMapping("/{vocabId}")
     public ResponseEntity<Map<String, Object>> disableVocab(@PathVariable Long vocabId) {
         try {
@@ -121,7 +124,6 @@ public class VocabController {
     public ResponseEntity<VocabListResponse> getRejectedVocabList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        
         Pageable pageable = PageRequest.of(page, size);
         VocabListResponse response = vocabService.getRejectedVocabList(pageable);
         return ResponseEntity.ok(response);

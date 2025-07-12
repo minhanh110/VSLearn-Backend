@@ -17,6 +17,7 @@ public class TopicDetailResponse {
     private Boolean isFree;
     private String status;
     private Long sortOrder;
+    private Long subtopicCount; // Number of subtopics for this topic
     private Instant createdAt;
     private Long createdBy;
     private Instant updatedAt;

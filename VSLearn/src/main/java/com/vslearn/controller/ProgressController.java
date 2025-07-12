@@ -6,7 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/progress")
+@RequestMapping("/api/v1/progress")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class ProgressController {
     private final ProgressService progressService;
 
