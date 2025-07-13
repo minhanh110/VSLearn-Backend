@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,4 +19,5 @@ public class TopicCreateRequest {
     private Boolean isFree = false;
     private String status;
     private Long sortOrder = 0L;
+    private List<String> subtopics;
 } 

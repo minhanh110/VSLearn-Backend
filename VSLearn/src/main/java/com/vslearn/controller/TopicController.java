@@ -30,8 +30,10 @@ public class TopicController {
     public ResponseEntity<TopicListResponse> getTopicList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(topicService.getTopicList(PageRequest.of(page, size), search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status // Thêm dòng này
+    ) {
+        return ResponseEntity.ok(topicService.getTopicList(PageRequest.of(page, size), search, status));
     }
 
     @GetMapping("/{topicId}")

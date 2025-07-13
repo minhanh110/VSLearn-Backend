@@ -5,7 +5,9 @@ import com.vslearn.dto.request.TopicUpdateRequest;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import com.vslearn.entities.Topic;
+import com.vslearn.entities.SubTopic;
 import com.vslearn.repository.TopicRepository;
+import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -20,17 +22,21 @@ import java.util.stream.Collectors;
 public class TopicServiceImpl implements TopicService {
     
     private final TopicRepository topicRepository;
+    private final SubTopicRepository subTopicRepository;
     
     @Autowired
-    public TopicServiceImpl(TopicRepository topicRepository) {
+    public TopicServiceImpl(TopicRepository topicRepository, SubTopicRepository subTopicRepository) {
         this.topicRepository = topicRepository;
+        this.subTopicRepository = subTopicRepository;
     }
     
     @Override
-    public TopicListResponse getTopicList(Pageable pageable, String search) {
+    public TopicListResponse getTopicList(Pageable pageable, String search, String status) {
         Page<Topic> topicPage;
         
-        if (search != null && !search.trim().isEmpty()) {
+        if (status != null && !status.trim().isEmpty()) {
+            topicPage = topicRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+        } else if (search != null && !search.trim().isEmpty()) {
             topicPage = topicRepository.findByTopicNameContainingIgnoreCaseAndDeletedAtIsNull(search, pageable);
         } else {
             topicPage = topicRepository.findByDeletedAtIsNull(pageable);
@@ -71,6 +77,24 @@ public class TopicServiceImpl implements TopicService {
                 .build();
         
         Topic savedTopic = topicRepository.save(topic);
+        
+        // Tạo subtopics nếu có
+        if (request.getSubtopics() != null && !request.getSubtopics().isEmpty()) {
+            for (String subtopicName : request.getSubtopics()) {
+                if (subtopicName != null && !subtopicName.trim().isEmpty()) {
+                    SubTopic subtopic = SubTopic.builder()
+                            .topic(savedTopic)
+                            .subTopicName(subtopicName.trim())
+                            .status("active") // Mặc định active
+                            .sortOrder(0L)
+                            .createdAt(Instant.now())
+                            .createdBy(1L) // TODO: Get from security context
+                            .build();
+                    subTopicRepository.save(subtopic);
+                }
+            }
+        }
+        
         return convertToTopicDetailResponse(savedTopic);
     }
     
