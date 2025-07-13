@@ -21,4 +21,9 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     Page<Topic> findByTopicNameContainingIgnoreCaseAndDeletedAtIsNull(String topicName, Pageable pageable);
     
     Page<Topic> findByDeletedAtIsNull(Pageable pageable);
+    
+    @Query("SELECT DISTINCT t.status FROM Topic t WHERE t.status IS NOT NULL")
+    List<String> findDistinctStatuses();
+
+    Page<Topic> findByStatusAndDeletedAtIsNull(String status, Pageable pageable);
 } 

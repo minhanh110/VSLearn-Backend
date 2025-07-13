@@ -8,6 +8,7 @@ import com.vslearn.entities.Vocab;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.entities.Topic;
 import com.vslearn.entities.Area;
+import com.vslearn.entities.VocabArea;
 import com.vslearn.repository.VocabRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.TopicRepository;
@@ -16,6 +17,7 @@ import com.vslearn.service.VocabService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -49,29 +51,64 @@ public class VocabServiceImpl implements VocabService {
         boolean hasRegion = region != null && !region.trim().isEmpty();
         boolean hasLetter = letter != null && !letter.trim().isEmpty() && !letter.equals("TẤT CẢ");
         
-        System.out.println("🔍 Filter criteria - Search: " + hasSearch + ", Topic: " + hasTopic + ", Region: " + hasRegion + ", Letter: " + hasLetter);
+        System.out.println("🔍 Filter criteria - Search: " + hasSearch + " ('" + search + "'), Topic: " + hasTopic + " ('" + topic + "'), Region: " + hasRegion + " ('" + region + "'), Letter: " + hasLetter + " ('" + letter + "')");
         
-        // Use combined filter query if multiple filters are active
-        if (hasSearch || hasTopic || hasRegion || hasLetter) {
-            vocabPage = vocabRepository.findByCombinedFilters(search, topic, region, letter, pageable);
-            System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies with combined filters");
-        } else {
-            vocabPage = vocabRepository.findByDeletedAtIsNull(pageable);
+        try {
+            // Use more specific queries for better performance and accuracy
+            if (hasSearch) {
+                if (hasTopic && hasRegion && hasLetter) {
+                    // Search + Topic + Region + Letter
+                    vocabPage = vocabRepository.findByCombinedFilters(search, topic, region, letter, pageable);
+                } else if (hasTopic && hasLetter) {
+                    // Search + Topic + Letter
+                    vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
+                    vocabPage = vocabPage.getContent().stream()
+                        .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
+                        .collect(Collectors.collectingAndThen(
+                            Collectors.toList(),
+                            list -> new PageImpl<>(list, pageable, list.size())
+                        ));
+                } else if (hasTopic) {
+                    // Search + Topic
+                    vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
+                } else if (hasLetter) {
+                    // Search + Letter
+                    vocabPage = vocabRepository.findBySearchAndLetter(search, letter, pageable);
+                } else {
+                    // Search only
+                    vocabPage = vocabRepository.findBySearchOnly(search, pageable);
+                }
+                System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies with search filter");
+            } else {
+                // No search term - use combined filters for other filters
+                if (hasTopic || hasRegion || hasLetter) {
+                    vocabPage = vocabRepository.findByCombinedFilters(null, topic, region, letter, pageable);
+                } else {
+                    vocabPage = vocabRepository.findByDeletedAtIsNull(pageable);
+                }
+                System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies without search filter");
+            }
+            
+            List<VocabDetailResponse> vocabList = vocabPage.getContent().stream()
+                    .map(this::convertToVocabDetailResponse)
+                    .collect(Collectors.toList());
+            
+            System.out.println("🔍 Returning " + vocabList.size() + " vocabularies");
+            
+            return VocabListResponse.builder()
+                    .vocabList(vocabList)
+                    .currentPage(vocabPage.getNumber())
+                    .totalPages(vocabPage.getTotalPages())
+                    .totalElements(vocabPage.getTotalElements())
+                    .pageSize(vocabPage.getSize())
+                    .hasNext(vocabPage.hasNext())
+                    .hasPrevious(vocabPage.hasPrevious())
+                    .build();
+        } catch (Exception e) {
+            System.err.println("❌ Error in getVocabList: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-        
-        List<VocabDetailResponse> vocabList = vocabPage.getContent().stream()
-                .map(this::convertToVocabDetailResponse)
-                .collect(Collectors.toList());
-        
-        return VocabListResponse.builder()
-                .vocabList(vocabList)
-                .currentPage(vocabPage.getNumber())
-                .totalPages(vocabPage.getTotalPages())
-                .totalElements(vocabPage.getTotalElements())
-                .pageSize(vocabPage.getSize())
-                .hasNext(vocabPage.hasNext())
-                .hasPrevious(vocabPage.hasPrevious())
-                .build();
     }
 
     @Override
@@ -80,7 +117,18 @@ public class VocabServiceImpl implements VocabService {
         if (vocab.isEmpty()) {
             throw new RuntimeException("Không tìm thấy từ vựng với ID: " + vocabId);
         }
-        return convertToVocabDetailResponse(vocab.get());
+        
+        // Load vocab with SubTopic and Topic relationships
+        Vocab vocabWithRelations = vocab.get();
+        if (vocabWithRelations.getSubTopic() != null) {
+            // Force load SubTopic and Topic to avoid LazyInitializationException
+            SubTopic subTopic = subTopicRepository.findById(vocabWithRelations.getSubTopic().getId()).orElse(null);
+            if (subTopic != null) {
+                vocabWithRelations.setSubTopic(subTopic);
+            }
+        }
+        
+        return convertToVocabDetailResponse(vocabWithRelations);
     }
 
     @Override
@@ -186,12 +234,50 @@ public class VocabServiceImpl implements VocabService {
     }
 
     private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {
+        String topicName = null;
+        String subTopicName = null;
+        String description = null;
+        String videoLink = null;
+        String region = null;
+        
+        // Safely get topic and subtopic names
+        if (vocab.getSubTopic() != null) {
+            subTopicName = vocab.getSubTopic().getSubTopicName();
+            
+            // Get topic name from SubTopic's Topic relationship
+            if (vocab.getSubTopic().getTopic() != null) {
+                topicName = vocab.getSubTopic().getTopic().getTopicName();
+            } else {
+                // Fallback: try to get topic name from repository
+                try {
+                    SubTopic subTopic = subTopicRepository.findById(vocab.getSubTopic().getId()).orElse(null);
+                    if (subTopic != null && subTopic.getTopic() != null) {
+                        topicName = subTopic.getTopic().getTopicName();
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error loading topic name for vocab " + vocab.getId() + ": " + e.getMessage());
+                }
+            }
+        }
+        
+        // Get description, videoLink, and region from vocab_area
+        if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
+            VocabArea vocabArea = vocab.getVocabAreas().get(0); // Get first vocab area
+            description = vocabArea.getVocabAreaDescription();
+            videoLink = vocabArea.getVocabAreaVideo();
+            if (vocabArea.getArea() != null) {
+                region = vocabArea.getArea().getAreaName();
+            }
+        }
+        
         return VocabDetailResponse.builder()
                 .id(vocab.getId())
                 .vocab(vocab.getVocab())
-                .topicName(vocab.getSubTopic() != null && vocab.getSubTopic().getTopic() != null 
-                        ? vocab.getSubTopic().getTopic().getTopicName() : null)
-                .subTopicName(vocab.getSubTopic() != null ? vocab.getSubTopic().getSubTopicName() : null)
+                .topicName(topicName)
+                .subTopicName(subTopicName)
+                .description(description)
+                .videoLink(videoLink)
+                .region(region)
                 .status(vocab.getDeletedAt() != null ? "disabled" : "active")
                 .createdAt(vocab.getCreatedAt())
                 .createdBy(vocab.getCreatedBy())

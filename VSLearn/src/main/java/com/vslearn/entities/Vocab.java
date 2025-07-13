@@ -21,6 +21,7 @@ import java.util.List;
 })
 public class Vocab {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 

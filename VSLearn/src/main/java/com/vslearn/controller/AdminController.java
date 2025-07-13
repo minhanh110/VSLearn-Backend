@@ -4,7 +4,6 @@ import com.vslearn.dto.response.AdminDashboardResponse;
 import com.vslearn.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -21,7 +20,6 @@ public class AdminController {
     }
 
     // Lấy thống kê dashboard
-    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboardStats() {
         AdminDashboardResponse response = adminService.getDashboardStats();
@@ -29,7 +27,6 @@ public class AdminController {
     }
 
     // Lấy thống kê người dùng
-    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/users/stats")
     public ResponseEntity<Map<String, Object>> getUserStats() {
         Map<String, Object> stats = adminService.getUserStats();
@@ -37,7 +34,6 @@ public class AdminController {
     }
 
     // Lấy thống kê nội dung
-    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/content/stats")
     public ResponseEntity<Map<String, Object>> getContentStats() {
         Map<String, Object> stats = adminService.getContentStats();
@@ -45,7 +41,6 @@ public class AdminController {
     }
 
     // Lấy thống kê học tập
-    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/learning/stats")
     public ResponseEntity<Map<String, Object>> getLearningStats() {
         Map<String, Object> stats = adminService.getLearningStats();

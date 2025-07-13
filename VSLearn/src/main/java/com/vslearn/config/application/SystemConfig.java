@@ -36,6 +36,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/topics/list").permitAll()
                 .requestMatchers("/api/v1/topics/all").permitAll()
                 .requestMatchers("/api/v1/topics/{topicId}").permitAll()
+                .requestMatchers("/api/v1/topics/status-options").permitAll()
                 .requestMatchers("/api/v1/vocab/topics").permitAll()
                 .requestMatchers("/api/v1/vocab/regions").permitAll()
                 .requestMatchers("/api/v1/vocab/list").permitAll()
