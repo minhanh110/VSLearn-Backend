@@ -21,6 +21,7 @@ import java.time.Instant;
 })
 public class SubTopic {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
