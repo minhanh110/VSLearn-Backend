@@ -52,6 +52,9 @@ public class Vocab {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    @Column(name = "status", nullable = false)
+    private String status;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "sub_topic_id")

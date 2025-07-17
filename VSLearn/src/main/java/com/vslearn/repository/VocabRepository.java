@@ -110,4 +110,54 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
            "LOWER(v.meaning) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "UPPER(SUBSTRING(v.vocab, 1, 1)) = UPPER(:letter)")
     Page<Vocab> findBySearchAndLetter(String search, String letter, Pageable pageable);
+    
+    // Filter by status
+    @Query("SELECT v FROM Vocab v WHERE v.deletedAt IS NULL AND v.status = :status")
+    Page<Vocab> findByStatusAndDeletedAtIsNull(String status, Pageable pageable);
+    
+    // Search with status filter
+    @Query("SELECT v FROM Vocab v WHERE v.deletedAt IS NULL AND " +
+           "(LOWER(v.vocab) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.subTopicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.meaning) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "v.status = :status")
+    Page<Vocab> findBySearchAndStatus(String search, String status, Pageable pageable);
+    
+    // Search with topic and status filter
+    @Query("SELECT v FROM Vocab v WHERE v.deletedAt IS NULL AND " +
+           "(LOWER(v.vocab) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.subTopicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.meaning) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :topic, '%')) AND " +
+           "v.status = :status")
+    Page<Vocab> findBySearchAndTopicAndStatus(String search, String topic, String status, Pageable pageable);
+    
+    // Search with letter and status filter
+    @Query("SELECT v FROM Vocab v WHERE v.deletedAt IS NULL AND " +
+           "(LOWER(v.vocab) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.subTopic.subTopicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(v.meaning) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "UPPER(SUBSTRING(v.vocab, 1, 1)) = UPPER(:letter) AND " +
+           "v.status = :status")
+    Page<Vocab> findBySearchAndLetterAndStatus(String search, String letter, String status, Pageable pageable);
+    
+    // Combined filters with status
+    @Query("SELECT DISTINCT v FROM Vocab v " +
+           "LEFT JOIN v.vocabAreas va LEFT JOIN va.area a " +
+           "WHERE v.deletedAt IS NULL " +
+           "AND (:search IS NULL OR :search = '' OR " +
+           "     LOWER(v.vocab) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "     LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "     LOWER(v.subTopic.subTopicName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "     LOWER(v.meaning) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "AND (:topic IS NULL OR :topic = '' OR LOWER(v.subTopic.topic.topicName) LIKE LOWER(CONCAT('%', :topic, '%'))) " +
+           "AND (:region IS NULL OR :region = '' OR " +
+           "     (:region IN ('Toàn quốc', 'toàn quốc', 'TOÀN QUỐC') AND va.id IS NULL) OR " +
+           "     (LOWER(a.areaName) LIKE LOWER(CONCAT('%', :region, '%')))) " +
+           "AND (:letter IS NULL OR :letter = '' OR :letter = 'TẤT CẢ' OR UPPER(SUBSTRING(v.vocab, 1, 1)) = UPPER(:letter)) " +
+           "AND (:status IS NULL OR :status = '' OR v.status = :status)")
+    Page<Vocab> findByCombinedFiltersWithStatus(String search, String topic, String region, String letter, String status, Pageable pageable);
 } 

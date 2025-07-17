@@ -27,4 +27,5 @@ public class VocabCreateRequest {
 
     // Thêm trường meaning
     private String meaning;
+    private String status;
 } 
