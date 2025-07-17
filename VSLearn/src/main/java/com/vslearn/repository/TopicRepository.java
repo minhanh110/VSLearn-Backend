@@ -26,4 +26,7 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     List<String> findDistinctStatuses();
 
     Page<Topic> findByStatusAndDeletedAtIsNull(String status, Pageable pageable);
+    
+    @Query("SELECT t FROM Topic t WHERE t.status = ?1 AND t.deletedAt IS NULL")
+    List<Topic> findByStatusAndDeletedAtIsNull(String status);
 } 

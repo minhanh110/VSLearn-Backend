@@ -44,9 +44,10 @@ public class VocabController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String topic,
             @RequestParam(required = false) String region,
-            @RequestParam(required = false) String letter) {
+            @RequestParam(required = false) String letter,
+            @RequestParam(required = false) String status) {
         Pageable pageable = PageRequest.of(page, size);
-        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region, letter);
+        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region, letter, status);
         return ResponseEntity.ok(response);
     }
 

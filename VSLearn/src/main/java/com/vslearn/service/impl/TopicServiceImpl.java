@@ -147,13 +147,16 @@ public class TopicServiceImpl implements TopicService {
     }
     
     private TopicDetailResponse convertToTopicDetailResponse(Topic topic) {
+        // Calculate actual subtopic count
+        Long subtopicCount = (long) subTopicRepository.findByTopic_Id(topic.getId()).size();
+        
         return TopicDetailResponse.builder()
                 .id(topic.getId())
                 .topicName(topic.getTopicName())
                 .isFree(topic.getIsFree())
                 .status(topic.getStatus())
                 .sortOrder(topic.getSortOrder())
-                .subtopicCount(0L) // TODO: Calculate from SubTopic repository
+                .subtopicCount(subtopicCount)
                 .createdAt(topic.getCreatedAt())
                 .createdBy(topic.getCreatedBy())
                 .updatedAt(topic.getUpdatedAt())

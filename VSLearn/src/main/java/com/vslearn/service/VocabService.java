@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface VocabService {
-    VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter);
+    VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter, String status);
     VocabDetailResponse getVocabDetail(Long vocabId);
     VocabDetailResponse createVocab(VocabCreateRequest request);
     VocabDetailResponse updateVocab(Long vocabId, VocabUpdateRequest request);

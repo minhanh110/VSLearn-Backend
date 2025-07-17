@@ -42,7 +42,7 @@ public class VocabServiceImpl implements VocabService {
     }
 
     @Override
-    public VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter) {
+    public VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter, String status) {
         Page<Vocab> vocabPage;
         
         // Build combined filter criteria
@@ -50,15 +50,34 @@ public class VocabServiceImpl implements VocabService {
         boolean hasTopic = topic != null && !topic.trim().isEmpty();
         boolean hasRegion = region != null && !region.trim().isEmpty();
         boolean hasLetter = letter != null && !letter.trim().isEmpty() && !letter.equals("TẤT CẢ");
+        boolean hasStatus = status != null && !status.trim().isEmpty();
         
-        System.out.println("🔍 Filter criteria - Search: " + hasSearch + " ('" + search + "'), Topic: " + hasTopic + " ('" + topic + "'), Region: " + hasRegion + " ('" + region + "'), Letter: " + hasLetter + " ('" + letter + "')");
+        System.out.println("🔍 Filter criteria - Search: " + hasSearch + " ('" + search + "'), Topic: " + hasTopic + " ('" + topic + "'), Region: " + hasRegion + " ('" + region + "'), Letter: " + hasLetter + " ('" + letter + "'), Status: " + hasStatus + " ('" + status + "')");
         
         try {
             // Use more specific queries for better performance and accuracy
             if (hasSearch) {
-                if (hasTopic && hasRegion && hasLetter) {
-                    // Search + Topic + Region + Letter
-                    vocabPage = vocabRepository.findByCombinedFilters(search, topic, region, letter, pageable);
+                if (hasTopic && hasRegion && hasLetter && hasStatus) {
+                    // Search + Topic + Region + Letter + Status
+                    vocabPage = vocabRepository.findByCombinedFiltersWithStatus(search, topic, region, letter, status, pageable);
+                } else if (hasTopic && hasLetter && hasStatus) {
+                    // Search + Topic + Letter + Status
+                    vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
+                    vocabPage = vocabPage.getContent().stream()
+                        .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
+                        .collect(Collectors.collectingAndThen(
+                            Collectors.toList(),
+                            list -> new PageImpl<>(list, pageable, list.size())
+                        ));
+                } else if (hasTopic && hasStatus) {
+                    // Search + Topic + Status
+                    vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
+                } else if (hasLetter && hasStatus) {
+                    // Search + Letter + Status
+                    vocabPage = vocabRepository.findBySearchAndLetterAndStatus(search, letter, status, pageable);
+                } else if (hasStatus) {
+                    // Search + Status
+                    vocabPage = vocabRepository.findBySearchAndStatus(search, status, pageable);
                 } else if (hasTopic && hasLetter) {
                     // Search + Topic + Letter
                     vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
@@ -81,8 +100,11 @@ public class VocabServiceImpl implements VocabService {
                 System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies with search filter");
             } else {
                 // No search term - use combined filters for other filters
-                if (hasTopic || hasRegion || hasLetter) {
-                    vocabPage = vocabRepository.findByCombinedFilters(null, topic, region, letter, pageable);
+                if (hasStatus && !hasTopic && !hasRegion && !hasLetter) {
+                    // Only status filter
+                    vocabPage = vocabRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+                } else if (hasTopic || hasRegion || hasLetter || hasStatus) {
+                    vocabPage = vocabRepository.findByCombinedFiltersWithStatus(null, topic, region, letter, status, pageable);
                 } else {
                     vocabPage = vocabRepository.findByDeletedAtIsNull(pageable);
                 }
@@ -144,6 +166,7 @@ public class VocabServiceImpl implements VocabService {
                 .subTopic(subTopic.get())
                 .createdAt(Instant.now())
                 .createdBy(1L) // TODO: Get from current user
+                .status(request.getStatus() != null ? request.getStatus() : "pending")
                 .build();
         
         Vocab savedVocab = vocabRepository.save(vocab);
@@ -168,7 +191,9 @@ public class VocabServiceImpl implements VocabService {
         vocab.setSubTopic(subTopic.get());
         vocab.setUpdatedAt(Instant.now());
         vocab.setUpdatedBy(1L); // TODO: Get from current user
-        
+        if (request.getStatus() != null) {
+            vocab.setStatus(request.getStatus());
+        }
         Vocab savedVocab = vocabRepository.save(vocab);
         return convertToVocabDetailResponse(savedVocab);
     }
@@ -208,7 +233,7 @@ public class VocabServiceImpl implements VocabService {
 
     @Override
     public List<Map<String, Object>> getTopics() {
-        List<Topic> topics = topicRepository.findByDeletedAtIsNull();
+        List<Topic> topics = topicRepository.findByStatusAndDeletedAtIsNull("active");
         return topics.stream()
                 .map(topic -> {
                     Map<String, Object> map = new java.util.HashMap<>();
@@ -278,7 +303,7 @@ public class VocabServiceImpl implements VocabService {
                 .description(description)
                 .videoLink(videoLink)
                 .region(region)
-                .status(vocab.getDeletedAt() != null ? "disabled" : "active")
+                .status(vocab.getStatus())
                 .createdAt(vocab.getCreatedAt())
                 .createdBy(vocab.getCreatedBy())
                 .updatedAt(vocab.getUpdatedAt())
