@@ -58,8 +58,8 @@ public class SystemConfig implements WebMvcConfigurer {
                 // Learning path - cho phép guest user truy cập
                 .requestMatchers("/api/v1/learning-path/**").permitAll()
                 .requestMatchers("/api/v1/progress/**").permitAll()
-                .requestMatchers("/api/test/**").hasAuthority(UserRoles.LEARNER)
-                .requestMatchers("/api/v1/feedback/**").hasAuthority(UserRoles.LEARNER)
+                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/v1/feedback/**").permitAll()
 
                 // Content Creator
                 .requestMatchers("/api/v1/vocab/create").hasAuthority(UserRoles.CONTENT_CREATOR)
