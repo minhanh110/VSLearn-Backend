@@ -9,10 +9,11 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface TopicService {
-    TopicListResponse getTopicList(Pageable pageable, String search);
+    TopicListResponse getTopicList(Pageable pageable, String search, String status);
     TopicDetailResponse getTopicDetail(Long topicId);
     TopicDetailResponse createTopic(TopicCreateRequest request);
     TopicDetailResponse updateTopic(Long topicId, TopicUpdateRequest request);
+    TopicDetailResponse updateTopicStatus(Long topicId, String newStatus);
     void disableTopic(Long topicId);
     List<TopicDetailResponse> getAllTopics();
 } 

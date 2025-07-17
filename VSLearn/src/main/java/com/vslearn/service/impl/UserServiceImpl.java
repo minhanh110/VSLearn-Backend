@@ -20,6 +20,7 @@ import com.vslearn.service.UserService;
 import com.vslearn.utils.JwtUtil;
 import com.vslearn.utils.MailUtils;
 import com.vslearn.utils.RandomUtils;
+import com.vslearn.constant.UserRoles;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +61,11 @@ public class UserServiceImpl implements UserService {
         if (!passwordEncoder.matches(userLoginDTO.getPassword(), user.getUserPassword())) {
             throw new AuthenticationFailException("Tài khoản hoặc mật khẩu không đúng", userLoginDTO);
         }
+        // Nếu user chưa có role, gán mặc định là LEARNER
+        if (user.getUserRole() == null || user.getUserRole().isEmpty()) {
+            user.setUserRole(UserRoles.LEARNER);
+            userRepository.save(user);
+        }
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
                 .message("Đăng nhập thành công")
@@ -96,7 +102,7 @@ public class UserServiceImpl implements UserService {
         user.setLastName(dto.getLastName() != null ? dto.getLastName() : user.getLastName());
         user.setPhoneNumber(dto.getPhoneNumber());
         user.setUserPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setUserRole(dto.getUserRole() != null ? dto.getUserRole() : "ROLE_LEARNER");
+        user.setUserRole(UserRoles.LEARNER); // luôn là LEARNER khi đăng ký
         user.setActiveCode(null); // Clear OTP after successful registration
         user.setIsActive(true); // Ensure account is active after registration
 

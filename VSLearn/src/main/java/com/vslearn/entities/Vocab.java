@@ -8,6 +8,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
+import java.util.List;
 
 @Builder
 @AllArgsConstructor
@@ -20,6 +21,7 @@ import java.time.Instant;
 })
 public class Vocab {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
@@ -27,6 +29,9 @@ public class Vocab {
     @NotNull
     @Column(name = "vocab", nullable = false)
     private String vocab;
+
+    @Column(name = "meaning", columnDefinition = "TEXT")
+    private String meaning;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -47,9 +52,14 @@ public class Vocab {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    @Column(name = "status", nullable = false)
+    private String status;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "sub_topic_id")
     private SubTopic subTopic;
 
+    @OneToMany(mappedBy = "vocab", fetch = FetchType.LAZY)
+    private List<VocabArea> vocabAreas;
 }
