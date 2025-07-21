@@ -24,5 +24,5 @@ public class VocabUpdateRequest {
     private String description;
     private String videoLink;
     private String region;
-    private String status;
+    // Status sẽ được set tự động thành "pending" cho Content Creator
 } 

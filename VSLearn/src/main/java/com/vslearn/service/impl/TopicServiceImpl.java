@@ -70,7 +70,7 @@ public class TopicServiceImpl implements TopicService {
         Topic topic = Topic.builder()
                 .topicName(request.getTopicName())
                 .isFree(request.getIsFree() != null ? request.getIsFree() : false)
-                .status(request.getStatus())
+                .status("pending") // Content Creator tạo topic luôn có status pending
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0L)
                 .createdAt(Instant.now())
                 .createdBy(1L) // TODO: Get from security context
@@ -85,7 +85,7 @@ public class TopicServiceImpl implements TopicService {
                     SubTopic subtopic = SubTopic.builder()
                             .topic(savedTopic)
                             .subTopicName(subtopicName.trim())
-                            .status("active") // Mặc định active
+                            .status("pending") // Subtopics cũng cần pending
                             .sortOrder(0L)
                             .createdAt(Instant.now())
                             .createdBy(1L) // TODO: Get from security context
@@ -105,7 +105,8 @@ public class TopicServiceImpl implements TopicService {
         
         topic.setTopicName(request.getTopicName());
         topic.setIsFree(request.getIsFree() != null ? request.getIsFree() : topic.getIsFree());
-        topic.setStatus(request.getStatus());
+        // Content Creator update topic thì status luôn chuyển về pending để chờ duyệt lại
+        topic.setStatus("pending");
         topic.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : topic.getSortOrder());
         topic.setUpdatedAt(Instant.now());
         topic.setUpdatedBy(1L); // TODO: Get from security context

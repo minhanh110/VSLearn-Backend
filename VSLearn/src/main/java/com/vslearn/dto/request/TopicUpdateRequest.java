@@ -15,6 +15,6 @@ public class TopicUpdateRequest {
     private String topicName;
     
     private Boolean isFree;
-    private String status;
+    // Status sẽ được set tự động thành "pending" cho Content Creator
     private Long sortOrder;
 } 

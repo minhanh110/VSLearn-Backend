@@ -27,11 +27,28 @@ public class Pricing {
     @Column(name = "pricing_type", nullable = false)
     private String pricingType;
 
+    @Size(max = 255)
+    @NotNull
+    @Column(name = "package_name", nullable = false)
+    private String packageName;
+
     @Column(name = "price", columnDefinition = "int UNSIGNED not null")
     private Long price;
 
     @Column(name = "duration_days", columnDefinition = "int UNSIGNED not null")
     private Long durationDays;
+
+    @Column(name = "max_vocab_count", columnDefinition = "int UNSIGNED")
+    private Integer maxVocabCount;
+
+    @Column(name = "max_test_count", columnDefinition = "int UNSIGNED")
+    private Integer maxTestCount;
+
+    @Column(name = "is_active", columnDefinition = "boolean not null default true")
+    private Boolean isActive;
+
+    @Column(name = "discount_percent", columnDefinition = "double UNSIGNED not null default 0")
+    private Double discountPercent;
 
     @Size(max = 255)
     @Column(name = "description")
