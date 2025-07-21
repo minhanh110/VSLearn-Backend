@@ -31,9 +31,10 @@ public class TopicController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status // Thêm dòng này
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long createdBy // thêm dòng này
     ) {
-        return ResponseEntity.ok(topicService.getTopicList(PageRequest.of(page, size), search, status));
+        return ResponseEntity.ok(topicService.getTopicList(PageRequest.of(page, size), search, status, createdBy));
     }
 
     @GetMapping("/{topicId}")
