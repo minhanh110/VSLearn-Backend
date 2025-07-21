@@ -13,6 +13,7 @@ import com.vslearn.repository.VocabRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.AreaRepository;
+import com.vslearn.repository.VocabAreaRepository;
 import com.vslearn.service.VocabService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,13 +33,20 @@ public class VocabServiceImpl implements VocabService {
     private final SubTopicRepository subTopicRepository;
     private final TopicRepository topicRepository;
     private final AreaRepository areaRepository;
+    private final VocabAreaRepository vocabAreaRepository;
+    private final com.google.cloud.storage.Storage storage;
+    private final String bucketName;
 
     @Autowired
-    public VocabServiceImpl(VocabRepository vocabRepository, SubTopicRepository subTopicRepository, TopicRepository topicRepository, AreaRepository areaRepository) {
+    public VocabServiceImpl(VocabRepository vocabRepository, SubTopicRepository subTopicRepository, TopicRepository topicRepository, AreaRepository areaRepository, VocabAreaRepository vocabAreaRepository,
+                          com.google.cloud.storage.Storage storage, @org.springframework.beans.factory.annotation.Value("${gcp.storage.bucket.name}") String bucketName) {
         this.vocabRepository = vocabRepository;
         this.subTopicRepository = subTopicRepository;
         this.topicRepository = topicRepository;
         this.areaRepository = areaRepository;
+        this.vocabAreaRepository = vocabAreaRepository;
+        this.storage = storage;
+        this.bucketName = bucketName;
     }
 
     @Override
@@ -161,15 +169,46 @@ public class VocabServiceImpl implements VocabService {
             throw new RuntimeException("Không tìm thấy SubTopic với ID: " + request.getSubTopicId());
         }
         
+        // Get or create area
+        Area area = null;
+        if (request.getRegion() != null && !request.getRegion().trim().isEmpty()) {
+            List<Area> areas = areaRepository.findByAreaName(request.getRegion());
+            if (!areas.isEmpty()) {
+                area = areas.get(0);
+            }
+        }
+        if (area == null) {
+            // Default to "Toàn quốc" area
+            List<Area> defaultAreas = areaRepository.findByAreaName("Toàn quốc");
+            if (!defaultAreas.isEmpty()) {
+                area = defaultAreas.get(0);
+            }
+        }
+        
         Vocab vocab = Vocab.builder()
                 .vocab(request.getVocab())
                 .subTopic(subTopic.get())
                 .createdAt(Instant.now())
                 .createdBy(1L) // TODO: Get from current user
-                .status(request.getStatus() != null ? request.getStatus() : "pending")
+                .status("pending") // Content Creator tạo vocab luôn có status pending
                 .build();
         
         Vocab savedVocab = vocabRepository.save(vocab);
+        
+        // Create VocabArea with video and description
+        if (area != null) {
+            VocabArea vocabArea = VocabArea.builder()
+                    .vocab(savedVocab)
+                    .area(area)
+                    .vocabAreaVideo(request.getVideoLink())
+                    .vocabAreaDescription(request.getDescription())
+                    .createdAt(Instant.now())
+                    .createdBy(1L) // TODO: Get from current user
+                    .build();
+            
+            vocabAreaRepository.save(vocabArea);
+        }
+        
         return convertToVocabDetailResponse(savedVocab);
     }
 
@@ -191,9 +230,8 @@ public class VocabServiceImpl implements VocabService {
         vocab.setSubTopic(subTopic.get());
         vocab.setUpdatedAt(Instant.now());
         vocab.setUpdatedBy(1L); // TODO: Get from current user
-        if (request.getStatus() != null) {
-            vocab.setStatus(request.getStatus());
-        }
+        // Content Creator update vocab thì status luôn chuyển về pending để chờ duyệt lại
+        vocab.setStatus("pending");
         Vocab savedVocab = vocabRepository.save(vocab);
         return convertToVocabDetailResponse(savedVocab);
     }
@@ -246,6 +284,22 @@ public class VocabServiceImpl implements VocabService {
     }
 
     @Override
+    public VocabDetailResponse updateVocabStatus(Long vocabId, String status) {
+        Optional<Vocab> existingVocab = vocabRepository.findById(vocabId);
+        if (existingVocab.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy từ vựng với ID: " + vocabId);
+        }
+        
+        Vocab vocab = existingVocab.get();
+        vocab.setStatus(status);
+        vocab.setUpdatedAt(Instant.now());
+        vocab.setUpdatedBy(1L); // TODO: Get from current user
+        
+        Vocab savedVocab = vocabRepository.save(vocab);
+        return convertToVocabDetailResponse(savedVocab);
+    }
+
+    @Override
     public List<Map<String, Object>> getRegions() {
         List<Area> areas = areaRepository.findAll();
         return areas.stream()
@@ -289,9 +343,32 @@ public class VocabServiceImpl implements VocabService {
         if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
             VocabArea vocabArea = vocab.getVocabAreas().get(0); // Get first vocab area
             description = vocabArea.getVocabAreaDescription();
-            videoLink = vocabArea.getVocabAreaVideo();
+            
+            // Generate signed URL for video like flashcard does
+            String objectName = vocabArea.getVocabAreaVideo();
+            if (objectName != null && !objectName.trim().isEmpty()) {
+                try {
+                    com.google.cloud.storage.BlobId blobId = com.google.cloud.storage.BlobId.of(bucketName, objectName);
+                    com.google.cloud.storage.BlobInfo blobInfo = com.google.cloud.storage.BlobInfo.newBuilder(blobId).build();
+                    
+                    java.net.URL signedUrl = storage.signUrl(blobInfo, 2, java.util.concurrent.TimeUnit.HOURS, 
+                        com.google.cloud.storage.Storage.SignUrlOption.withV4Signature());
+                    
+                    videoLink = signedUrl.toString();
+                    System.out.println("🔍 Generated signed URL for video: " + videoLink);
+                } catch (Exception e) {
+                    System.err.println("❌ Error generating signed URL for video: " + e.getMessage());
+                    videoLink = objectName; // Fallback to original path
+                }
+            } else {
+                videoLink = objectName;
+            }
+            
+            System.out.println("🔍 VocabArea video: " + videoLink);
+            System.out.println("🔍 VocabArea description: " + description);
             if (vocabArea.getArea() != null) {
                 region = vocabArea.getArea().getAreaName();
+                System.out.println("🔍 VocabArea region: " + region);
             }
         }
         
