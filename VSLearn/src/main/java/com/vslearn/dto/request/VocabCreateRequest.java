@@ -27,5 +27,5 @@ public class VocabCreateRequest {
 
     // Thêm trường meaning
     private String meaning;
-    private String status;
+    // Status sẽ được set tự động thành "pending" cho Content Creator
 } 
