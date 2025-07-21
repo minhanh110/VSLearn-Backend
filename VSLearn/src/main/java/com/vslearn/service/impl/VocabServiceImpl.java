@@ -50,95 +50,114 @@ public class VocabServiceImpl implements VocabService {
     }
 
     @Override
-    public VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter, String status) {
+    public VocabListResponse getVocabList(Pageable pageable, String search, String topic, String region, String letter, String status, Long createdBy) {
         Page<Vocab> vocabPage;
-        
-        // Build combined filter criteria
-        boolean hasSearch = search != null && !search.trim().isEmpty();
-        boolean hasTopic = topic != null && !topic.trim().isEmpty();
-        boolean hasRegion = region != null && !region.trim().isEmpty();
-        boolean hasLetter = letter != null && !letter.trim().isEmpty() && !letter.equals("TẤT CẢ");
-        boolean hasStatus = status != null && !status.trim().isEmpty();
-        
-        System.out.println("🔍 Filter criteria - Search: " + hasSearch + " ('" + search + "'), Topic: " + hasTopic + " ('" + topic + "'), Region: " + hasRegion + " ('" + region + "'), Letter: " + hasLetter + " ('" + letter + "'), Status: " + hasStatus + " ('" + status + "')");
-        
-        try {
-            // Use more specific queries for better performance and accuracy
-            if (hasSearch) {
-                if (hasTopic && hasRegion && hasLetter && hasStatus) {
-                    // Search + Topic + Region + Letter + Status
-                    vocabPage = vocabRepository.findByCombinedFiltersWithStatus(search, topic, region, letter, status, pageable);
-                } else if (hasTopic && hasLetter && hasStatus) {
-                    // Search + Topic + Letter + Status
-                    vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
-                    vocabPage = vocabPage.getContent().stream()
-                        .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
-                        .collect(Collectors.collectingAndThen(
-                            Collectors.toList(),
-                            list -> new PageImpl<>(list, pageable, list.size())
-                        ));
-                } else if (hasTopic && hasStatus) {
-                    // Search + Topic + Status
-                    vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
-                } else if (hasLetter && hasStatus) {
-                    // Search + Letter + Status
-                    vocabPage = vocabRepository.findBySearchAndLetterAndStatus(search, letter, status, pageable);
-                } else if (hasStatus) {
-                    // Search + Status
-                    vocabPage = vocabRepository.findBySearchAndStatus(search, status, pageable);
-                } else if (hasTopic && hasLetter) {
-                    // Search + Topic + Letter
-                    vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
-                    vocabPage = vocabPage.getContent().stream()
-                        .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
-                        .collect(Collectors.collectingAndThen(
-                            Collectors.toList(),
-                            list -> new PageImpl<>(list, pageable, list.size())
-                        ));
-                } else if (hasTopic) {
-                    // Search + Topic
-                    vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
-                } else if (hasLetter) {
-                    // Search + Letter
-                    vocabPage = vocabRepository.findBySearchAndLetter(search, letter, pageable);
-                } else {
-                    // Search only
-                    vocabPage = vocabRepository.findBySearchOnly(search, pageable);
-                }
-                System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies with search filter");
+        if (createdBy != null) {
+            if (status != null && !status.trim().isEmpty()) {
+                vocabPage = vocabRepository.findByStatusAndCreatedByAndDeletedAtIsNull(status, createdBy, pageable);
             } else {
-                // No search term - use combined filters for other filters
-                if (hasStatus && !hasTopic && !hasRegion && !hasLetter) {
-                    // Only status filter
-                    vocabPage = vocabRepository.findByStatusAndDeletedAtIsNull(status, pageable);
-                } else if (hasTopic || hasRegion || hasLetter || hasStatus) {
-                    vocabPage = vocabRepository.findByCombinedFiltersWithStatus(null, topic, region, letter, status, pageable);
-                } else {
-                    vocabPage = vocabRepository.findByDeletedAtIsNull(pageable);
-                }
-                System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies without search filter");
+                vocabPage = vocabRepository.findByCreatedByAndDeletedAtIsNull(createdBy, pageable);
             }
+        } else {
+            // Build combined filter criteria
+            boolean hasSearch = search != null && !search.trim().isEmpty();
+            boolean hasTopic = topic != null && !topic.trim().isEmpty();
+            boolean hasRegion = region != null && !region.trim().isEmpty();
+            boolean hasLetter = letter != null && !letter.trim().isEmpty() && !letter.equals("TẤT CẢ");
+            boolean hasStatus = status != null && !status.trim().isEmpty();
             
-            List<VocabDetailResponse> vocabList = vocabPage.getContent().stream()
-                    .map(this::convertToVocabDetailResponse)
-                    .collect(Collectors.toList());
+            System.out.println("🔍 Filter criteria - Search: " + hasSearch + " ('" + search + "'), Topic: " + hasTopic + " ('" + topic + "'), Region: " + hasRegion + " ('" + region + "'), Letter: " + hasLetter + " ('" + letter + "'), Status: " + hasStatus + " ('" + status + "')");
             
-            System.out.println("🔍 Returning " + vocabList.size() + " vocabularies");
-            
-            return VocabListResponse.builder()
-                    .vocabList(vocabList)
-                    .currentPage(vocabPage.getNumber())
-                    .totalPages(vocabPage.getTotalPages())
-                    .totalElements(vocabPage.getTotalElements())
-                    .pageSize(vocabPage.getSize())
-                    .hasNext(vocabPage.hasNext())
-                    .hasPrevious(vocabPage.hasPrevious())
-                    .build();
-        } catch (Exception e) {
-            System.err.println("❌ Error in getVocabList: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+            try {
+                // Use more specific queries for better performance and accuracy
+                if (hasSearch) {
+                    if (hasTopic && hasRegion && hasLetter && hasStatus) {
+                        // Search + Topic + Region + Letter + Status
+                        vocabPage = vocabRepository.findByCombinedFiltersWithStatus(search, topic, region, letter, status, pageable);
+                    } else if (hasTopic && hasLetter && hasStatus) {
+                        // Search + Topic + Letter + Status
+                        vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
+                        vocabPage = vocabPage.getContent().stream()
+                            .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
+                            .collect(Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> new PageImpl<>(list, pageable, list.size())
+                            ));
+                    } else if (hasTopic && hasStatus) {
+                        // Search + Topic + Status
+                        vocabPage = vocabRepository.findBySearchAndTopicAndStatus(search, topic, status, pageable);
+                    } else if (hasLetter && hasStatus) {
+                        // Search + Letter + Status
+                        vocabPage = vocabRepository.findBySearchAndLetterAndStatus(search, letter, status, pageable);
+                    } else if (hasStatus) {
+                        // Search + Status
+                        vocabPage = vocabRepository.findBySearchAndStatus(search, status, pageable);
+                    } else if (hasTopic && hasLetter) {
+                        // Search + Topic + Letter
+                        vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
+                        vocabPage = vocabPage.getContent().stream()
+                            .filter(v -> !hasLetter || v.getVocab().toUpperCase().startsWith(letter.toUpperCase()))
+                            .collect(Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> new PageImpl<>(list, pageable, list.size())
+                            ));
+                    } else if (hasTopic) {
+                        // Search + Topic
+                        vocabPage = vocabRepository.findBySearchAndTopic(search, topic, pageable);
+                    } else if (hasLetter) {
+                        // Search + Letter
+                        vocabPage = vocabRepository.findBySearchAndLetter(search, letter, pageable);
+                    } else {
+                        // Search only
+                        vocabPage = vocabRepository.findBySearchOnly(search, pageable);
+                    }
+                    System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies with search filter");
+                } else {
+                    // No search term - use combined filters for other filters
+                    if (hasStatus && !hasTopic && !hasRegion && !hasLetter) {
+                        // Only status filter
+                        vocabPage = vocabRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+                    } else if (hasTopic || hasRegion || hasLetter || hasStatus) {
+                        vocabPage = vocabRepository.findByCombinedFiltersWithStatus(null, topic, region, letter, status, pageable);
+                    } else {
+                        vocabPage = vocabRepository.findByDeletedAtIsNull(pageable);
+                    }
+                    System.out.println("🔍 Found " + vocabPage.getTotalElements() + " vocabularies without search filter");
+                }
+                
+                List<VocabDetailResponse> vocabList = vocabPage.getContent().stream()
+                        .map(this::convertToVocabDetailResponse)
+                        .collect(Collectors.toList());
+                
+                System.out.println("🔍 Returning " + vocabList.size() + " vocabularies");
+                
+                return VocabListResponse.builder()
+                        .vocabList(vocabList)
+                        .currentPage(vocabPage.getNumber())
+                        .totalPages(vocabPage.getTotalPages())
+                        .totalElements(vocabPage.getTotalElements())
+                        .pageSize(vocabPage.getSize())
+                        .hasNext(vocabPage.hasNext())
+                        .hasPrevious(vocabPage.hasPrevious())
+                        .build();
+            } catch (Exception e) {
+                System.err.println("❌ Error in getVocabList: " + e.getMessage());
+                e.printStackTrace();
+                throw e;
+            }
         }
+        List<VocabDetailResponse> vocabList = vocabPage.getContent().stream()
+                .map(this::convertToVocabDetailResponse)
+                .collect(Collectors.toList());
+        return VocabListResponse.builder()
+                .vocabList(vocabList)
+                .currentPage(vocabPage.getNumber())
+                .totalPages(vocabPage.getTotalPages())
+                .totalElements(vocabPage.getTotalElements())
+                .pageSize(vocabPage.getSize())
+                .hasNext(vocabPage.hasNext())
+                .hasPrevious(vocabPage.hasPrevious())
+                .build();
     }
 
     @Override

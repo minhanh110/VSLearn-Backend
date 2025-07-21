@@ -2,6 +2,7 @@ package com.vslearn.service.impl;
 
 import com.vslearn.dto.request.TopicCreateRequest;
 import com.vslearn.dto.request.TopicUpdateRequest;
+import com.vslearn.dto.request.SubTopicRequest;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import com.vslearn.entities.Topic;
@@ -31,21 +32,24 @@ public class TopicServiceImpl implements TopicService {
     }
     
     @Override
-    public TopicListResponse getTopicList(Pageable pageable, String search, String status) {
+    public TopicListResponse getTopicList(Pageable pageable, String search, String status, Long createdBy) {
         Page<Topic> topicPage;
-        
-        if (status != null && !status.trim().isEmpty()) {
+        if (createdBy != null) {
+            if (status != null && !status.trim().isEmpty()) {
+                topicPage = topicRepository.findByStatusAndCreatedByAndDeletedAtIsNull(status, createdBy, pageable);
+            } else {
+                topicPage = topicRepository.findByCreatedByAndDeletedAtIsNull(createdBy, pageable);
+            }
+        } else if (status != null && !status.trim().isEmpty()) {
             topicPage = topicRepository.findByStatusAndDeletedAtIsNull(status, pageable);
         } else if (search != null && !search.trim().isEmpty()) {
             topicPage = topicRepository.findByTopicNameContainingIgnoreCaseAndDeletedAtIsNull(search, pageable);
         } else {
             topicPage = topicRepository.findByDeletedAtIsNull(pageable);
         }
-        
         List<TopicDetailResponse> topicList = topicPage.getContent().stream()
                 .map(this::convertToTopicDetailResponse)
                 .collect(Collectors.toList());
-        
         return TopicListResponse.builder()
                 .topicList(topicList)
                 .currentPage(topicPage.getNumber())
@@ -70,31 +74,30 @@ public class TopicServiceImpl implements TopicService {
         Topic topic = Topic.builder()
                 .topicName(request.getTopicName())
                 .isFree(request.getIsFree() != null ? request.getIsFree() : false)
-                .status("pending") // Content Creator tạo topic luôn có status pending
+                .status("pending")
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0L)
                 .createdAt(Instant.now())
-                .createdBy(1L) // TODO: Get from security context
+                .createdBy(1L)
                 .build();
-        
         Topic savedTopic = topicRepository.save(topic);
-        
-        // Tạo subtopics nếu có
+        // Tạo subtopics và vocab lồng nhau
         if (request.getSubtopics() != null && !request.getSubtopics().isEmpty()) {
-            for (String subtopicName : request.getSubtopics()) {
-                if (subtopicName != null && !subtopicName.trim().isEmpty()) {
+            for (SubTopicRequest subReq : request.getSubtopics()) {
+                if (subReq.getSubTopicName() != null && !subReq.getSubTopicName().trim().isEmpty()) {
                     SubTopic subtopic = SubTopic.builder()
                             .topic(savedTopic)
-                            .subTopicName(subtopicName.trim())
-                            .status("pending") // Subtopics cũng cần pending
-                            .sortOrder(0L)
+                            .subTopicName(subReq.getSubTopicName().trim())
+                            .status("pending")
+                            .sortOrder(subReq.getSortOrder() != null ? subReq.getSortOrder() : 0L)
                             .createdAt(Instant.now())
-                            .createdBy(1L) // TODO: Get from security context
+                            .createdBy(1L)
                             .build();
-                    subTopicRepository.save(subtopic);
+                    SubTopic savedSub = subTopicRepository.save(subtopic);
+                    // TODO: Tạo vocab cho subtopic này nếu có (cần repo và entity cho vocab)
+                    // for (VocabRequest v : subReq.getVocabs()) { ... }
                 }
             }
         }
-        
         return convertToTopicDetailResponse(savedTopic);
     }
     
