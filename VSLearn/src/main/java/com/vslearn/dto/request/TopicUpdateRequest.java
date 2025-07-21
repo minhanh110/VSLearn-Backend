@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,4 +19,6 @@ public class TopicUpdateRequest {
     private Boolean isFree;
     // Status sẽ được set tự động thành "pending" cho Content Creator
     private Long sortOrder;
+
+    private List<SubTopicRequest> subtopics;
 } 

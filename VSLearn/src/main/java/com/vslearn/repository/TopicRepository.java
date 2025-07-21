@@ -29,4 +29,7 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     
     @Query("SELECT t FROM Topic t WHERE t.status = ?1 AND t.deletedAt IS NULL")
     List<Topic> findByStatusAndDeletedAtIsNull(String status);
+
+    Page<Topic> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
+    Page<Topic> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
 } 
