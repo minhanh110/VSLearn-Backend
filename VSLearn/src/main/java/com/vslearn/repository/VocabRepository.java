@@ -163,4 +163,5 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
 
     Page<Vocab> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
     Page<Vocab> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
+    List<Vocab> findBySubTopic_Id(Long subTopicId);
 } 
