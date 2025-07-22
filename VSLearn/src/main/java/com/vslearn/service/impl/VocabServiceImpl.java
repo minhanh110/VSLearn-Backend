@@ -182,10 +182,13 @@ public class VocabServiceImpl implements VocabService {
 
     @Override
     public VocabDetailResponse createVocab(VocabCreateRequest request) {
-        // Validate SubTopic exists
-        Optional<SubTopic> subTopic = subTopicRepository.findById(request.getSubTopicId());
-        if (subTopic.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy SubTopic với ID: " + request.getSubTopicId());
+        SubTopic subTopic = null;
+        if (request.getSubTopicId() != null) {
+            Optional<SubTopic> subTopicOpt = subTopicRepository.findById(request.getSubTopicId());
+            if (subTopicOpt.isEmpty()) {
+                throw new RuntimeException("Không tìm thấy SubTopic với ID: " + request.getSubTopicId());
+            }
+            subTopic = subTopicOpt.get();
         }
         
         // Get or create area
@@ -206,7 +209,7 @@ public class VocabServiceImpl implements VocabService {
         
         Vocab vocab = Vocab.builder()
                 .vocab(request.getVocab())
-                .subTopic(subTopic.get())
+                .subTopic(subTopic)
                 .createdAt(Instant.now())
                 .createdBy(1L) // TODO: Get from current user
                 .status("pending") // Content Creator tạo vocab luôn có status pending
@@ -237,19 +240,19 @@ public class VocabServiceImpl implements VocabService {
         if (existingVocab.isEmpty()) {
             throw new RuntimeException("Không tìm thấy từ vựng với ID: " + vocabId);
         }
-        
-        // Validate SubTopic exists
-        Optional<SubTopic> subTopic = subTopicRepository.findById(request.getSubTopicId());
-        if (subTopic.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy SubTopic với ID: " + request.getSubTopicId());
+        SubTopic subTopic = null;
+        if (request.getSubTopicId() != null) {
+            Optional<SubTopic> subTopicOpt = subTopicRepository.findById(request.getSubTopicId());
+            if (subTopicOpt.isEmpty()) {
+                throw new RuntimeException("Không tìm thấy SubTopic với ID: " + request.getSubTopicId());
+            }
+            subTopic = subTopicOpt.get();
         }
-        
         Vocab vocab = existingVocab.get();
         vocab.setVocab(request.getVocab());
-        vocab.setSubTopic(subTopic.get());
+        vocab.setSubTopic(subTopic);
         vocab.setUpdatedAt(Instant.now());
         vocab.setUpdatedBy(1L); // TODO: Get from current user
-        // Content Creator update vocab thì status luôn chuyển về pending để chờ duyệt lại
         vocab.setStatus("pending");
         Vocab savedVocab = vocabRepository.save(vocab);
         return convertToVocabDetailResponse(savedVocab);
