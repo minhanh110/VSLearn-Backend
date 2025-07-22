@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,4 +25,5 @@ public class TopicDetailResponse {
     private Long updatedBy;
     private Instant deletedAt;
     private Long deletedBy;
+    private List<SubTopicDetailResponse> subtopics;
 } 
