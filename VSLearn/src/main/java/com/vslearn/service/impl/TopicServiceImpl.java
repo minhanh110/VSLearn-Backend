@@ -5,10 +5,14 @@ import com.vslearn.dto.request.TopicUpdateRequest;
 import com.vslearn.dto.request.SubTopicRequest;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
+import com.vslearn.dto.response.SubTopicDetailResponse;
+import com.vslearn.dto.response.VocabDetailResponse;
 import com.vslearn.entities.Topic;
 import com.vslearn.entities.SubTopic;
+import com.vslearn.entities.Vocab;
 import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.SubTopicRepository;
+import com.vslearn.repository.VocabRepository;
 import com.vslearn.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,11 +28,13 @@ public class TopicServiceImpl implements TopicService {
     
     private final TopicRepository topicRepository;
     private final SubTopicRepository subTopicRepository;
+    private final VocabRepository vocabRepository;
     
     @Autowired
-    public TopicServiceImpl(TopicRepository topicRepository, SubTopicRepository subTopicRepository) {
+    public TopicServiceImpl(TopicRepository topicRepository, SubTopicRepository subTopicRepository, VocabRepository vocabRepository) {
         this.topicRepository = topicRepository;
         this.subTopicRepository = subTopicRepository;
+        this.vocabRepository = vocabRepository;
     }
     
     @Override
@@ -65,8 +71,33 @@ public class TopicServiceImpl implements TopicService {
     public TopicDetailResponse getTopicDetail(Long topicId) {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + topicId));
-        
-        return convertToTopicDetailResponse(topic);
+        List<SubTopic> subTopics = subTopicRepository.findByTopic_Id(topicId);
+        List<SubTopicDetailResponse> subtopicResponses = subTopics.stream().map(sub -> {
+            List<Vocab> vocabs = vocabRepository.findBySubTopic_Id(sub.getId());
+            List<VocabDetailResponse> vocabResponses = vocabs.stream()
+                .map(this::convertToVocabDetailResponse)
+                .collect(Collectors.toList());
+            return SubTopicDetailResponse.builder()
+                .id(sub.getId())
+                .subTopicName(sub.getSubTopicName())
+                .sortOrder(sub.getSortOrder())
+                .vocabs(vocabResponses)
+                .build();
+        }).collect(Collectors.toList());
+        return TopicDetailResponse.builder()
+                .id(topic.getId())
+                .topicName(topic.getTopicName())
+                .isFree(topic.getIsFree())
+                .status(topic.getStatus())
+                .sortOrder(topic.getSortOrder())
+                .subtopics(subtopicResponses)
+                .createdAt(topic.getCreatedAt())
+                .createdBy(topic.getCreatedBy())
+                .updatedAt(topic.getUpdatedAt())
+                .updatedBy(topic.getUpdatedBy())
+                .deletedAt(topic.getDeletedAt())
+                .deletedBy(topic.getDeletedBy())
+                .build();
     }
     
     @Override
@@ -168,5 +199,31 @@ public class TopicServiceImpl implements TopicService {
                 .deletedAt(topic.getDeletedAt())
                 .deletedBy(topic.getDeletedBy())
                 .build();
+    }
+
+    private SubTopicDetailResponse convertToSubTopicDetailResponse(SubTopic subtopic) {
+        List<Vocab> vocabs = vocabRepository.findBySubTopic_Id(subtopic.getId());
+        List<VocabDetailResponse> vocabResponses = vocabs.stream()
+            .map(this::convertToVocabDetailResponse)
+            .collect(Collectors.toList());
+        return SubTopicDetailResponse.builder()
+            .id(subtopic.getId())
+            .subTopicName(subtopic.getSubTopicName())
+            .sortOrder(subtopic.getSortOrder())
+            .vocabs(vocabResponses)
+            .build();
+    }
+
+    private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {
+        return VocabDetailResponse.builder()
+            .id(vocab.getId())
+            .vocab(vocab.getVocab())
+            .createdAt(vocab.getCreatedAt())
+            .createdBy(vocab.getCreatedBy())
+            .updatedAt(vocab.getUpdatedAt())
+            .updatedBy(vocab.getUpdatedBy())
+            .deletedAt(vocab.getDeletedAt())
+            .deletedBy(vocab.getDeletedBy())
+            .build();
     }
 } 
