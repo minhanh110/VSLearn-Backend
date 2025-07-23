@@ -19,4 +19,5 @@ public interface VocabService {
     VocabDetailResponse updateVocabStatus(Long vocabId, String status);
     List<Map<String, Object>> getTopics();
     List<Map<String, Object>> getRegions();
+    String uploadToPendingVideos(org.springframework.web.multipart.MultipartFile file, String fileName) throws Exception;
 } 

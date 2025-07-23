@@ -1,6 +1,8 @@
 package com.vslearn.service;
 
 import com.vslearn.dto.response.AdminDashboardResponse;
+import com.vslearn.dto.request.UserManagementRequest;
+import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
@@ -29,4 +31,7 @@ public interface AdminService {
     
     // User Detail Management
     Map<String, Object> getUserById(Long userId);
+
+    ResponseEntity<?> createUserByManager(UserManagementRequest req);
+    ResponseEntity<?> updateUserByManager(Long userId, UserManagementRequest req);
 } 
