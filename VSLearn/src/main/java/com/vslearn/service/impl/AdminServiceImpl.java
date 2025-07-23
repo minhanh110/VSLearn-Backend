@@ -8,6 +8,10 @@ import com.vslearn.repository.ProgressRepository;
 import com.vslearn.service.AdminService;
 import com.vslearn.entities.User;
 import com.vslearn.constant.UserRoles;
+import com.vslearn.dto.request.UserManagementRequest;
+import com.vslearn.dto.response.ResponseData;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +34,9 @@ public class AdminServiceImpl implements AdminService {
         this.vocabRepository = vocabRepository;
         this.progressRepository = progressRepository;
     }
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public AdminDashboardResponse getDashboardStats() {
@@ -426,6 +433,77 @@ public class AdminServiceImpl implements AdminService {
             Map<String, Object> result = new HashMap<>();
             result.put("error", e.getMessage());
             return result;
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> createUserByManager(UserManagementRequest req) {
+        // Kiểm tra trùng username/email/phone nếu cần
+        if (userRepository.existsByUserName(req.getUserName())) {
+            return ResponseEntity.badRequest().body(
+                ResponseData.builder().status(400).message("Tên đăng nhập đã tồn tại").build()
+            );
+        }
+        if (userRepository.existsByUserEmail(req.getUserEmail())) {
+            return ResponseEntity.badRequest().body(
+                ResponseData.builder().status(400).message("Email đã tồn tại").build()
+            );
+        }
+        // ... kiểm tra phone nếu muốn ...
+
+        User user = User.builder()
+            .userName(req.getUserName())
+            .firstName(req.getFirstName())
+            .lastName(req.getLastName())
+            .userEmail(req.getUserEmail())
+            .phoneNumber(req.getPhoneNumber())
+            .userRole("ROLE_" + req.getUserRole()) // Ví dụ: ROLE_LEARNER
+            .userAvatar(req.getUserAvatar())
+            .isActive(req.getIsActive() != null ? req.getIsActive() : true)
+            .userPassword(passwordEncoder.encode("123456")) // hoặc cho phép nhập password
+            .createdAt(java.time.Instant.now())
+            .build();
+
+        try {
+            userRepository.save(user);
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.contains("Duplicate entry") && msg.contains("phone_number")) {
+                return ResponseEntity.badRequest().body(ResponseData.builder().status(400).message("Số điện thoại đã tồn tại").build());
+            }
+            if (msg != null && msg.contains("Duplicate entry") && msg.contains("user_email")) {
+                return ResponseEntity.badRequest().body(ResponseData.builder().status(400).message("Email đã tồn tại").build());
+            }
+            if (msg != null && msg.contains("Duplicate entry") && msg.contains("user_name")) {
+                return ResponseEntity.badRequest().body(ResponseData.builder().status(400).message("Tên đăng nhập đã tồn tại").build());
+            }
+            return ResponseEntity.badRequest().body(ResponseData.builder().status(400).message("Tạo user thất bại: " + e.getMessage()).build());
+        }
+
+        return ResponseEntity.ok(
+            ResponseData.builder().status(200).message("Tạo user thành công").data(user).build()
+        );
+    }
+
+    @Override
+    public ResponseEntity<?> updateUserByManager(Long userId, UserManagementRequest req) {
+        try {
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+            // Chỉ cập nhật các trường có sẵn trong UserManagementRequest
+            if (req.getFirstName() != null) user.setFirstName(req.getFirstName());
+            if (req.getLastName() != null) user.setLastName(req.getLastName());
+            if (req.getUserName() != null) user.setUserName(req.getUserName());
+            if (req.getUserEmail() != null) user.setUserEmail(req.getUserEmail());
+            if (req.getPhoneNumber() != null) user.setPhoneNumber(req.getPhoneNumber());
+            if (req.getUserAvatar() != null) user.setUserAvatar(req.getUserAvatar());
+            if (req.getIsActive() != null) user.setIsActive(req.getIsActive());
+            if (req.getUserRole() != null) user.setUserRole(req.getUserRole());
+            user.setUpdatedAt(java.time.Instant.now());
+            userRepository.save(user);
+            return ResponseEntity.ok(ResponseData.builder().status(200).message("Cập nhật user thành công").build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ResponseData.builder().status(400).message("Cập nhật user thất bại: " + e.getMessage()).build());
         }
     }
 } 

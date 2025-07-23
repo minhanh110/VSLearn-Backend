@@ -26,6 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 
 @Service
 public class VocabServiceImpl implements VocabService {
@@ -332,6 +336,16 @@ public class VocabServiceImpl implements VocabService {
                 return map;
             })
             .collect(Collectors.toList());
+    }
+
+    @Override
+    public String uploadToPendingVideos(org.springframework.web.multipart.MultipartFile file, String fileName) throws Exception {
+        Storage storage = StorageOptions.getDefaultInstance().getService();
+        String objectName = "pending-videos/" + fileName;
+        BlobId blobId = BlobId.of(bucketName, objectName);
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType(file.getContentType()).build();
+        storage.create(blobInfo, file.getBytes());
+        return String.format("https://storage.googleapis.com/%s/%s", bucketName, objectName);
     }
 
     private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {
