@@ -7,6 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.vslearn.dto.request.UserManagementRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.vslearn.dto.response.ResponseData;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -117,6 +121,18 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long userId) {
         Map<String, Object> result = adminService.getUserById(userId);
         return ResponseEntity.ok(result);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @PostMapping("/users/create")
+    public ResponseEntity<?> createUserByManager(@RequestBody @Valid UserManagementRequest req) {
+        return adminService.createUserByManager(req);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @PutMapping("/users/{userId}")
+    public ResponseEntity<?> updateUserByManager(@PathVariable Long userId, @RequestBody @Valid UserManagementRequest req) {
+        return adminService.updateUserByManager(userId, req);
     }
 
     // Test endpoint
