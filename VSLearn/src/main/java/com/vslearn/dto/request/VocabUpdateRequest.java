@@ -15,13 +15,12 @@ public class VocabUpdateRequest {
     @NotBlank(message = "Tên từ vựng không được để trống")
     private String vocab;
     
-    @NotNull(message = "Chủ đề không được để trống")
     private Long topicId;
     
-    @NotNull(message = "SubTopic không được để trống")
     private Long subTopicId;
     
     private String description;
     private String videoLink;
     private String region;
+    // Status sẽ được set tự động thành "pending" cho Content Creator
 } 
