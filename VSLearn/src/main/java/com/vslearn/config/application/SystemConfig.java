@@ -48,6 +48,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/vocab/regions").permitAll()
                 .requestMatchers("/api/v1/vocab/list").permitAll()
                 .requestMatchers("/api/v1/vocab/{vocabId}").permitAll()
+                .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
 
                 // Authen endpoints (ai cũng gọi được)
                 .requestMatchers("/users/signin").permitAll()
