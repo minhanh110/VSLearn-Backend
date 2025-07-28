@@ -18,8 +18,15 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.io.FileInputStream;
+import java.io.IOException;
 
 @Configuration
 @EnableWebSecurity
@@ -41,6 +48,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/vocab/regions").permitAll()
                 .requestMatchers("/api/v1/vocab/list").permitAll()
                 .requestMatchers("/api/v1/vocab/{vocabId}").permitAll()
+                .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
 
                 // Authen endpoints (ai cũng gọi được)
                 .requestMatchers("/users/signin").permitAll()
@@ -58,8 +66,8 @@ public class SystemConfig implements WebMvcConfigurer {
                 // Learning path - cho phép guest user truy cập
                 .requestMatchers("/api/v1/learning-path/**").permitAll()
                 .requestMatchers("/api/v1/progress/**").permitAll()
-                .requestMatchers("/api/test/**").hasAuthority(UserRoles.LEARNER)
-                .requestMatchers("/api/v1/feedback/**").hasAuthority(UserRoles.LEARNER)
+                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/v1/feedback/**").permitAll()
 
                 // Content Creator
                 .requestMatchers("/api/v1/vocab/create").hasAuthority(UserRoles.CONTENT_CREATOR)
@@ -125,9 +133,15 @@ public class SystemConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*")
+                .allowedOrigins("http://localhost:3000")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
+    }
+
+    @Bean
+    public Storage storage(@Value("${gcp.storage.credentials.location}") String credentialsPath) throws IOException {
+        GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(credentialsPath.replace("file:", "")));
+        return StorageOptions.newBuilder().setCredentials(credentials).build().getService();
     }
 }
