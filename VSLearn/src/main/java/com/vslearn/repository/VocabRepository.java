@@ -160,4 +160,8 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
            "AND (:letter IS NULL OR :letter = '' OR :letter = 'TẤT CẢ' OR UPPER(SUBSTRING(v.vocab, 1, 1)) = UPPER(:letter)) " +
            "AND (:status IS NULL OR :status = '' OR v.status = :status)")
     Page<Vocab> findByCombinedFiltersWithStatus(String search, String topic, String region, String letter, String status, Pageable pageable);
+
+    Page<Vocab> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
+    Page<Vocab> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
+    List<Vocab> findBySubTopic_Id(Long subTopicId);
 } 

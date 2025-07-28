@@ -17,7 +17,7 @@ public class TopicCreateRequest {
     private String topicName;
     
     private Boolean isFree = false;
-    private String status;
+    // Status sẽ được set tự động thành "pending" cho Content Creator
     private Long sortOrder = 0L;
-    private List<String> subtopics;
+    private List<SubTopicRequest> subtopics;
 } 
