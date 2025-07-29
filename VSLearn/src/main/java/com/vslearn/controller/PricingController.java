@@ -17,10 +17,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/v1/pricing")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
 public class PricingController {
     
     private final PricingService pricingService;
@@ -30,9 +31,18 @@ public class PricingController {
         this.pricingService = pricingService;
     }
     
+    // Test endpoint
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testEndpoint() {
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Pricing API is working",
+            "timestamp", System.currentTimeMillis()
+        ));
+    }
+    
     // ==================== CRUD OPERATIONS ====================
     
-    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createPricing(@RequestBody @Valid PricingCreateRequest request) {
         try {
@@ -50,14 +60,23 @@ public class PricingController {
         }
     }
     
-    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/{pricingId}")
-    public ResponseEntity<PricingDetailResponse> getPricingById(@PathVariable Long pricingId) {
-        PricingDetailResponse response = pricingService.getPricingById(pricingId);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Map<String, Object>> getPricingById(@PathVariable Long pricingId) {
+        try {
+            PricingDetailResponse response = pricingService.getPricingById(pricingId);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Lấy chi tiết gói học thành công",
+                "data", response
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
     }
     
-    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @PutMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> updatePricing(
             @PathVariable Long pricingId,
@@ -77,7 +96,6 @@ public class PricingController {
         }
     }
     
-    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @DeleteMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> deletePricing(@PathVariable Long pricingId) {
         try {
@@ -96,17 +114,34 @@ public class PricingController {
     
     // ==================== LIST OPERATIONS ====================
     
-    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/list")
-    public ResponseEntity<PricingListResponse> getPricingList(
+    public ResponseEntity<Map<String, Object>> getPricingList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String pricingType,
             @RequestParam(required = false) Boolean isActive) {
-        Pageable pageable = PageRequest.of(page, size);
-        PricingListResponse response = pricingService.getPricingList(pageable, search, pricingType, isActive);
-        return ResponseEntity.ok(response);
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            PricingListResponse response = pricingService.getPricingList(pageable, search, pricingType, isActive);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Lấy danh sách gói học thành công",
+                "data", Map.of(
+                    "content", response.getPackages(),
+                    "totalElements", response.getTotalElements(),
+                    "totalPages", response.getTotalPages(),
+                    "currentPage", response.getCurrentPage(),
+                    "pageSize", response.getPageSize()
+                )
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
     }
     
     @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")

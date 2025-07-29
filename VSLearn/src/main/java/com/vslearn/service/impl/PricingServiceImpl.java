@@ -56,9 +56,7 @@ public class PricingServiceImpl implements PricingService {
         if (request.getPricingType() != null) {
             pricing.setPricingType(request.getPricingType());
         }
-        if (request.getPackageName() != null) {
-            pricing.setPackageName(request.getPackageName());
-        }
+
         if (request.getDescription() != null) {
             pricing.setDescription(request.getDescription());
         }
@@ -68,15 +66,8 @@ public class PricingServiceImpl implements PricingService {
         if (request.getDurationDays() != null) {
             pricing.setDurationDays(request.getDurationDays());
         }
-        if (request.getMaxVocabCount() != null) {
-            pricing.setMaxVocabCount(request.getMaxVocabCount());
-        }
-        if (request.getMaxTestCount() != null) {
-            pricing.setMaxTestCount(request.getMaxTestCount());
-        }
-        if (request.getIsActive() != null) {
-            pricing.setIsActive(request.getIsActive());
-        }
+
+
         if (request.getDiscountPercent() != null) {
             pricing.setDiscountPercent(request.getDiscountPercent());
         }
@@ -98,7 +89,7 @@ public class PricingServiceImpl implements PricingService {
         Pricing pricing = optionalPricing.get();
         pricing.setDeletedAt(Instant.now());
         pricing.setDeletedBy(1L); // TODO: Get from current user context
-        pricing.setIsActive(false);
+
         
         pricingRepository.save(pricing);
     }
@@ -115,8 +106,8 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public PricingListResponse getPricingList(Pageable pageable, String search, String pricingType, Boolean isActive) {
-        // TODO: Implement with proper filtering
-        Page<Pricing> pricingPage = pricingRepository.findAll(pageable);
+        // Use the new findByFilters method without isActive parameter
+        Page<Pricing> pricingPage = pricingRepository.findByFilters(pricingType, search, pageable);
         
         List<PricingDetailResponse> packages = pricingPage.getContent().stream()
                 .map(this::convertToResponse)
@@ -156,10 +147,8 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public List<PricingDetailResponse> getPricingByPriceRange(Double minPrice, Double maxPrice) {
-        // TODO: Implement when price range query is needed
-        List<Pricing> allPricing = pricingRepository.findAll();
-        return allPricing.stream()
-                .filter(p -> p.getPrice() >= minPrice && p.getPrice() <= maxPrice)
+        List<Pricing> pricingInRange = pricingRepository.findByPriceRange(minPrice, maxPrice);
+        return pricingInRange.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
@@ -203,14 +192,10 @@ public class PricingServiceImpl implements PricingService {
         return PricingDetailResponse.builder()
                 .id(pricing.getId())
                 .pricingType(pricing.getPricingType())
-                .packageName("N/A") // TODO: Add packageName field to entity
                 .description(pricing.getDescription())
                 .price(pricing.getPrice())
                 .durationDays(pricing.getDurationDays())
-                .maxVocabCount(0) // TODO: Add maxVocabCount field to entity
-                .maxTestCount(0) // TODO: Add maxTestCount field to entity
-                .isActive(true) // TODO: Add isActive field to entity
-                .discountPercent(0.0) // TODO: Add discountPercent field to entity
+                .discountPercent(pricing.getDiscountPercent())
                 .createdAt(pricing.getCreatedAt())
                 .createdBy(pricing.getCreatedBy())
                 .updatedAt(pricing.getUpdatedAt())
