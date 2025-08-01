@@ -2,12 +2,18 @@ package com.vslearn.service.impl;
 
 import com.vslearn.dto.request.VietQRRequest;
 import com.vslearn.dto.response.VietQRResponse;
+import com.vslearn.entities.Transaction;
 import com.vslearn.service.VietQRService;
 import com.vslearn.service.QRCodeService;
+import com.vslearn.service.CassoService;
+import com.vslearn.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import com.vslearn.utils.JwtUtil;
 
 import java.util.UUID;
 
@@ -36,6 +42,15 @@ public class VietQRServiceImpl implements VietQRService {
     
     @Autowired
     private QRCodeService qrCodeService;
+    
+    @Autowired
+    private CassoService cassoService;
+    
+    @Autowired
+    private TransactionService transactionService;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @Override
     public VietQRResponse createVietQR(VietQRRequest request) {
@@ -44,6 +59,30 @@ public class VietQRServiceImpl implements VietQRService {
             if (request.getTransactionCode() == null) {
                 request.setTransactionCode("TXN_" + UUID.randomUUID().toString().substring(0, 8));
             }
+            
+            // Lấy user ID từ JWT token
+            Long userId = null;
+            try {
+                String authHeader = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
+                        .getRequest().getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    String token = authHeader.replace("Bearer ", "");
+                    String userIdStr = jwtUtil.getClaimsFromToken(token).getClaims().get("id").toString();
+                    userId = Long.parseLong(userIdStr);
+                    System.out.println("Found user ID from JWT: " + userId);
+                }
+            } catch (Exception e) {
+                System.out.println("Error getting user ID from JWT: " + e.getMessage());
+            }
+            
+            // Lưu transaction vào database với user ID
+            transactionService.createTransaction(
+                request.getTransactionCode(),
+                (double) request.getAmount(),
+                request.getDescription(),
+                1L, // pricing ID = 1 (1_MONTH)
+                userId // user ID từ JWT
+            );
             
             // Sử dụng thông tin mặc định nếu không có
             if (request.getBankId() == null) {
@@ -66,24 +105,26 @@ public class VietQRServiceImpl implements VietQRService {
                     request.getTransactionCode()));
             }
             
-            // Gọi API VietQR chính thức với template
+            // Gọi API VietQR chính thức
             String apiUrl;
-            if (templateId != null && !templateId.isEmpty()) {
-                // Sử dụng template ID
-                apiUrl = String.format("%s/image/970422-113366668888-%s.jpg?amount=%d&content=%s",
+            if (templateId != null && !templateId.trim().isEmpty() && !templateId.contains("#")) {
+                // Sử dụng template ID nếu có và hợp lệ
+                apiUrl = String.format("%s/image/970422-%s-%s.jpg?amount=%d&content=%s",
                     vietqrApiUrl,
-                    templateId,
+                    defaultAccountNo,
+                    templateId.trim(),
                     request.getAmount(),
-                    request.getDescription()
+                    java.net.URLEncoder.encode(request.getDescription(), "UTF-8")
                 );
             } else {
-                // Fallback to bank ID
+                // Sử dụng API trực tiếp với thông tin ngân hàng
+                // Format: https://api.vietqr.io/image/{bankId}?accountNo={accountNo}&amount={amount}&content={content}
                 apiUrl = String.format("%s/image/%s?accountNo=%s&amount=%d&content=%s",
                     vietqrApiUrl,
                     request.getBankId(),
                     request.getAccountNo(),
                     request.getAmount(),
-                    request.getDescription()
+                    java.net.URLEncoder.encode(request.getDescription(), "UTF-8")
                 );
             }
             
@@ -91,36 +132,30 @@ public class VietQRServiceImpl implements VietQRService {
             System.out.println("Calling VietQR API: " + apiUrl);
             
             try {
-                // Thử gọi API VietQR
-                String response = restTemplate.getForObject(apiUrl, String.class);
-                System.out.println("VietQR API Response: " + response);
+                // Thử gọi API VietQR - chỉ kiểm tra xem URL có hợp lệ không
+                // Không đọc response content vì nó là binary image data
+                restTemplate.headForHeaders(apiUrl);
+                System.out.println("VietQR API URL is valid: " + apiUrl);
                 
-                // Nếu API thành công, sử dụng response
-                if (response != null && !response.contains("error")) {
-                    return VietQRResponse.builder()
-                            .qrCodeUrl(apiUrl)
-                            .qrCodeImage(apiUrl)
-                            .transactionCode(request.getTransactionCode())
-                            .amount(request.getAmount())
-                            .bankId(request.getBankId())
-                            .accountNo(request.getAccountNo())
-                            .accountName(request.getAccountName())
-                            .description(request.getDescription())
-                            .status("PENDING")
-                            .message("QR code từ VietQR API")
-                            .build();
-                }
+                // Nếu không có exception, URL hợp lệ và có thể sử dụng
+                return VietQRResponse.builder()
+                        .qrCodeUrl(apiUrl)
+                        .qrCodeImage(apiUrl)
+                        .transactionCode(request.getTransactionCode())
+                        .amount(request.getAmount())
+                        .bankId(request.getBankId())
+                        .accountNo(request.getAccountNo())
+                        .accountName(request.getAccountName())
+                        .description(request.getDescription())
+                        .status("PENDING")
+                        .message("QR code từ VietQR API")
+                        .build();
             } catch (Exception e) {
                 System.out.println("VietQR API failed, using local QR: " + e.getMessage());
             }
             
             // Fallback: Tạo QR code locally với format đơn giản
-            String vietqrContent = String.format("MB|%s|%s|%d|%s",
-                request.getAccountNo(),
-                request.getAccountName(),
-                request.getAmount(),
-                request.getDescription()
-            );
+            String vietqrContent = generateVietQRContent(request);
             
             String qrCodeBase64 = qrCodeService.generateQRCodeBase64(vietqrContent, 300, 300);
             
@@ -151,12 +186,39 @@ public class VietQRServiceImpl implements VietQRService {
 
     @Override
     public boolean checkPaymentStatus(String transactionCode) {
-        // TODO: Implement check payment status
-        // Có thể kiểm tra qua:
-        // 1. Webhook từ ngân hàng
-        // 2. API của ngân hàng (nếu có)
-        // 3. Manual check qua admin
-        return false;
+        try {
+            // Kiểm tra trong database trước
+            if (transactionService.isTransactionPaid(transactionCode)) {
+                return true;
+            }
+            
+            // Lấy thông tin transaction từ database
+            var transactionOpt = transactionService.findByCode(transactionCode);
+            if (transactionOpt.isPresent()) {
+                var transaction = transactionOpt.get();
+                double expectedAmount = transaction.getAmount();
+                
+                // Sử dụng Casso API để check payment status
+                boolean isPaid = cassoService.checkPaymentStatus(transactionCode, expectedAmount);
+                
+                // Nếu thanh toán thành công, cập nhật database
+                if (isPaid) {
+                    transactionService.updatePaymentStatus(
+                        transactionCode, 
+                        Transaction.PaymentStatus.PAID
+                    );
+                }
+                
+                return isPaid;
+            }
+            
+            return false;
+            
+        } catch (Exception e) {
+            System.err.println("Error checking payment status: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
@@ -172,7 +234,8 @@ public class VietQRServiceImpl implements VietQRService {
      */
     private String generateVietQRContent(VietQRRequest request) {
         // Format VietQR đơn giản để các app ngân hàng có thể nhận diện
-        return String.format("%s|%s|%d|%s",
+        // Thử format: bankId:accountNo:amount:content
+        return String.format("%s:%s:%d:%s",
             request.getBankId(),
             request.getAccountNo(),
             request.getAmount(),
