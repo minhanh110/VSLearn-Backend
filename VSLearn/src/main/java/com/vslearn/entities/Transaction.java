@@ -23,6 +23,7 @@ import java.time.Instant;
 })
 public class Transaction {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
@@ -55,4 +56,21 @@ public class Transaction {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    // Payment fields - chỉ thêm những cái cần thiết
+    @Column(name = "amount")
+    private Double amount;
+
+    @Column(name = "payment_status")
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+
+    @Column(name = "description")
+    private String description;
+
+    public enum PaymentStatus {
+        PENDING,    // Chờ thanh toán
+        PAID,       // Đã thanh toán
+        FAILED,     // Thanh toán thất bại
+        EXPIRED     // Hết hạn
+    }
 }
