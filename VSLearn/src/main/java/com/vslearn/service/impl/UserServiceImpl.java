@@ -17,6 +17,7 @@ import com.vslearn.exception.customizeException.ResourceNotFoundException;
 import com.vslearn.repository.UserRepository;
 import com.vslearn.repository.TransactionRepository;
 import com.vslearn.service.UserService;
+import com.vslearn.service.CassoService;
 import com.vslearn.utils.JwtUtil;
 import com.vslearn.utils.MailUtils;
 import com.vslearn.utils.RandomUtils;
@@ -27,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -35,6 +37,7 @@ import java.util.Random;
 
 @Service
 @Component
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     @Autowired
@@ -53,6 +56,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private TransactionRepository transactionRepository;
+    
+    @Autowired
+    private CassoService cassoService;
 
     @Override
     public ResponseEntity<ResponseData<?>> signin(UserLoginDTO userLoginDTO) {
@@ -402,8 +408,16 @@ public class UserServiceImpl implements UserService {
                         .data(null)
                         .build());
             }
-            // Kiểm tra subscription
+            // Kiểm tra subscription - lấy tất cả transactions (cả PENDING và PAID)
             java.util.List<com.vslearn.entities.Transaction> userTransactions = transactionRepository.findByCreatedBy_Id(user.getId());
+            log.info("Found {} transactions for user ID: {}", userTransactions.size(), user.getId());
+            
+            // Log tất cả transactions để debug
+            for (com.vslearn.entities.Transaction t : userTransactions) {
+                log.info("Transaction: ID={}, Status={}, StartDate={}, EndDate={}, Amount={}", 
+                        t.getId(), t.getPaymentStatus(), t.getStartDate(), t.getEndDate(), t.getAmount());
+            }
+            
             if (userTransactions.isEmpty()) {
                 return ResponseEntity.ok(ResponseData.builder()
                         .status(200)
@@ -415,11 +429,41 @@ public class UserServiceImpl implements UserService {
                         ))
                         .build());
             }
-            // Sắp xếp theo thời gian tạo, lấy transaction mới nhất
+            // Sắp xếp theo thời gian tạo, lấy transaction PAID mới nhất
             com.vslearn.entities.Transaction latestTransaction = userTransactions.stream()
+                    .filter(t -> t.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PAID)
                     .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
                     .findFirst()
                     .orElse(null);
+            
+            // Nếu không có PAID transaction, thử check PENDING transaction
+            if (latestTransaction == null) {
+                com.vslearn.entities.Transaction pendingTransaction = userTransactions.stream()
+                        .filter(t -> t.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PENDING)
+                        .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (pendingTransaction != null) {
+                    log.info("Found pending transaction: {}", pendingTransaction.getCode());
+                    // Comment out automatic payment check to prevent false positives
+                    // boolean isPaid = cassoService.checkPaymentStatus(pendingTransaction.getCode(), pendingTransaction.getAmount());
+                    // if (isPaid) {
+                    //     log.info("Payment confirmed for transaction: {}", pendingTransaction.getCode());
+                    //     // Update transaction status to PAID
+                    //     transactionRepository.updatePaymentStatus(pendingTransaction.getCode(), com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                    //     pendingTransaction.setPaymentStatus(com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                    //     latestTransaction = pendingTransaction;
+                    // }
+                }
+            }
+            
+            if (latestTransaction != null) {
+                log.info("Latest PAID transaction for user {}: ID={}, Status={}, StartDate={}, EndDate={}", 
+                        user.getId(), latestTransaction.getId(), latestTransaction.getPaymentStatus(),
+                        latestTransaction.getStartDate(), latestTransaction.getEndDate());
+            }
+            
             if (latestTransaction == null) {
                 return ResponseEntity.ok(ResponseData.builder()
                         .status(200)
@@ -433,6 +477,9 @@ public class UserServiceImpl implements UserService {
             }
             java.time.Instant now = java.time.Instant.now();
             boolean isValid = now.isAfter(latestTransaction.getStartDate()) && now.isBefore(latestTransaction.getEndDate());
+            log.info("Subscription validity check for user {}: now={}, startDate={}, endDate={}, isValid={}", 
+                    user.getId(), now, latestTransaction.getStartDate(), latestTransaction.getEndDate(), isValid);
+            
             if (isValid) {
                 return ResponseEntity.ok(ResponseData.builder()
                         .status(200)
