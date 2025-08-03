@@ -2,6 +2,8 @@ package com.vslearn.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +21,7 @@ import java.time.Instant;
 @Table(name = "pricing")
 public class Pricing {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
@@ -27,25 +30,13 @@ public class Pricing {
     @Column(name = "pricing_type", nullable = false)
     private String pricingType;
 
-    @Size(max = 255)
-    @NotNull
-    @Column(name = "package_name", nullable = false)
-    private String packageName;
+
 
     @Column(name = "price", columnDefinition = "int UNSIGNED not null")
     private Long price;
 
     @Column(name = "duration_days", columnDefinition = "int UNSIGNED not null")
     private Long durationDays;
-
-    @Column(name = "max_vocab_count", columnDefinition = "int UNSIGNED")
-    private Integer maxVocabCount;
-
-    @Column(name = "max_test_count", columnDefinition = "int UNSIGNED")
-    private Integer maxTestCount;
-
-    @Column(name = "is_active", columnDefinition = "boolean not null default true")
-    private Boolean isActive;
 
     @Column(name = "discount_percent", columnDefinition = "double UNSIGNED not null default 0")
     private Double discountPercent;
@@ -72,10 +63,6 @@ public class Pricing {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
-/*
- TODO [Reverse Engineering] create field to map the 'discount_percent' column
- Available actions: Define target Java type | Uncomment as is | Remove column mapping
-    @Column(name = "discount_percent", columnDefinition = "double UNSIGNED not null")
-    private Object discountPercent;
-*/
+    @Column(name = "is_active", columnDefinition = "boolean not null default true")
+    private Boolean isActive = true;
 }
