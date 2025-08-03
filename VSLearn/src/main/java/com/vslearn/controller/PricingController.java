@@ -43,6 +43,7 @@ public class PricingController {
     
     // ==================== CRUD OPERATIONS ====================
     
+    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createPricing(@RequestBody @Valid PricingCreateRequest request) {
         try {
@@ -60,6 +61,7 @@ public class PricingController {
         }
     }
     
+    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> getPricingById(@PathVariable Long pricingId) {
         try {
@@ -77,6 +79,7 @@ public class PricingController {
         }
     }
     
+    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @PutMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> updatePricing(
             @PathVariable Long pricingId,
@@ -96,6 +99,7 @@ public class PricingController {
         }
     }
     
+    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @DeleteMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> deletePricing(@PathVariable Long pricingId) {
         try {
@@ -114,6 +118,7 @@ public class PricingController {
     
     // ==================== LIST OPERATIONS ====================
     
+    @PreAuthorize("hasAnyAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/list")
     public ResponseEntity<Map<String, Object>> getPricingList(
             @RequestParam(defaultValue = "0") int page,
