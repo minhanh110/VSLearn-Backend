@@ -429,28 +429,39 @@ public class UserServiceImpl implements UserService {
                         ))
                         .build());
             }
-            // Sắp xếp theo thời gian tạo, lấy transaction mới nhất
+            // Sắp xếp theo thời gian tạo, lấy transaction PAID mới nhất
             com.vslearn.entities.Transaction latestTransaction = userTransactions.stream()
+                    .filter(t -> t.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PAID)
                     .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
                     .findFirst()
                     .orElse(null);
             
+            // Nếu không có PAID transaction, thử check PENDING transaction
+            if (latestTransaction == null) {
+                com.vslearn.entities.Transaction pendingTransaction = userTransactions.stream()
+                        .filter(t -> t.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PENDING)
+                        .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (pendingTransaction != null) {
+                    log.info("Found pending transaction: {}", pendingTransaction.getCode());
+                    // Comment out automatic payment check to prevent false positives
+                    // boolean isPaid = cassoService.checkPaymentStatus(pendingTransaction.getCode(), pendingTransaction.getAmount());
+                    // if (isPaid) {
+                    //     log.info("Payment confirmed for transaction: {}", pendingTransaction.getCode());
+                    //     // Update transaction status to PAID
+                    //     transactionRepository.updatePaymentStatus(pendingTransaction.getCode(), com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                    //     pendingTransaction.setPaymentStatus(com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                    //     latestTransaction = pendingTransaction;
+                    // }
+                }
+            }
+            
             if (latestTransaction != null) {
-                log.info("Latest transaction for user {}: ID={}, Status={}, StartDate={}, EndDate={}", 
+                log.info("Latest PAID transaction for user {}: ID={}, Status={}, StartDate={}, EndDate={}", 
                         user.getId(), latestTransaction.getId(), latestTransaction.getPaymentStatus(),
                         latestTransaction.getStartDate(), latestTransaction.getEndDate());
-                
-                // Nếu transaction là PENDING, thử check payment status
-                if (latestTransaction.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PENDING) {
-                    log.info("Checking payment status for pending transaction: {}", latestTransaction.getCode());
-                    boolean isPaid = cassoService.checkPaymentStatus(latestTransaction.getCode(), latestTransaction.getAmount());
-                    if (isPaid) {
-                        log.info("Payment confirmed for transaction: {}", latestTransaction.getCode());
-                        // Update transaction status to PAID
-                        transactionRepository.updatePaymentStatus(latestTransaction.getCode(), com.vslearn.entities.Transaction.PaymentStatus.PAID);
-                        latestTransaction.setPaymentStatus(com.vslearn.entities.Transaction.PaymentStatus.PAID);
-                    }
-                }
             }
             
             if (latestTransaction == null) {
