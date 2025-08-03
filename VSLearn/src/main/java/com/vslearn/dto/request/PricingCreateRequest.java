@@ -28,7 +28,7 @@ public class PricingCreateRequest {
     
 
     
-
+    
     
     @Builder.Default
     @DecimalMin(value = "0.0", message = "Discount percent must be greater than or equal to 0")

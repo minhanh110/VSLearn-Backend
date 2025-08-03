@@ -63,7 +63,7 @@ public class PricingController {
     @GetMapping("/{pricingId}")
     public ResponseEntity<Map<String, Object>> getPricingById(@PathVariable Long pricingId) {
         try {
-            PricingDetailResponse response = pricingService.getPricingById(pricingId);
+        PricingDetailResponse response = pricingService.getPricingById(pricingId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Lấy chi tiết gói học thành công",
@@ -122,8 +122,8 @@ public class PricingController {
             @RequestParam(required = false) String pricingType,
             @RequestParam(required = false) Boolean isActive) {
         try {
-            Pageable pageable = PageRequest.of(page, size);
-            PricingListResponse response = pricingService.getPricingList(pageable, search, pricingType, isActive);
+        Pageable pageable = PageRequest.of(page, size);
+        PricingListResponse response = pricingService.getPricingList(pageable, search, pricingType, isActive);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
