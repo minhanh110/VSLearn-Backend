@@ -34,4 +34,19 @@ public interface AdminService {
 
     ResponseEntity<?> createUserByManager(UserManagementRequest req);
     ResponseEntity<?> updateUserByManager(Long userId, UserManagementRequest req);
+    
+    // ==================== LEARNER DETAILS ====================
+    Map<String, Object> getLearnerPackages(Long userId);
+    Map<String, Object> getLearnerActivities(Long userId);
+    Map<String, Object> getLearnerDetailedStats(Long userId);
+    
+    // ==================== CREATOR DETAILS ====================
+    Map<String, Object> getCreatorTopics(Long userId);
+    Map<String, Object> getCreatorVocabularies(Long userId);
+    Map<String, Object> getCreatorDetailedStats(Long userId);
+    
+    // ==================== APPROVER DETAILS ====================
+    Map<String, Object> getApproverTopics(Long userId);
+    Map<String, Object> getApproverVocabularies(Long userId);
+    Map<String, Object> getApproverDetailedStats(Long userId);
 } 
