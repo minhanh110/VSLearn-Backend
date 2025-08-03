@@ -10,12 +10,14 @@ import com.vslearn.repository.VocabRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.service.VocabService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -28,12 +30,17 @@ public class VocabController {
     private final VocabService vocabService;
     private final VocabRepository vocabRepository;
     private final SubTopicRepository subTopicRepository;
+    private final com.google.cloud.storage.Storage storage;
+    private final String bucketName;
 
     @Autowired
-    public VocabController(VocabService vocabService, VocabRepository vocabRepository, SubTopicRepository subTopicRepository) {
+    public VocabController(VocabService vocabService, VocabRepository vocabRepository, SubTopicRepository subTopicRepository,
+                         com.google.cloud.storage.Storage storage, @Value("${gcp.storage.bucket.name}") String bucketName) {
         this.vocabService = vocabService;
         this.vocabRepository = vocabRepository;
         this.subTopicRepository = subTopicRepository;
+        this.storage = storage;
+        this.bucketName = bucketName;
     }
 
     // Lấy danh sách từ vựng với phân trang và filter
@@ -44,9 +51,12 @@ public class VocabController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String topic,
             @RequestParam(required = false) String region,
-            @RequestParam(required = false) String letter) {
+            @RequestParam(required = false) String letter,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long createdBy
+    ) {
         Pageable pageable = PageRequest.of(page, size);
-        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region, letter);
+        VocabListResponse response = vocabService.getVocabList(pageable, search, topic, region, letter, status, createdBy);
         return ResponseEntity.ok(response);
     }
 
@@ -141,5 +151,61 @@ public class VocabController {
     public ResponseEntity<List<Map<String, Object>>> getRegions() {
         List<Map<String, Object>> regions = vocabService.getRegions();
         return ResponseEntity.ok(regions);
+    }
+
+    // Cập nhật trạng thái từ vựng (cho Content Approver)
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PutMapping("/{vocabId}/status")
+    public ResponseEntity<Map<String, Object>> updateVocabStatus(@PathVariable Long vocabId, @RequestBody Map<String, String> request) {
+        String status = request.get("status");
+        if (status == null || status.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Trạng thái không được để trống"));
+        }
+        
+        try {
+            VocabDetailResponse response = vocabService.updateVocabStatus(vocabId, status);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật trạng thái thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Serve video files from Google Cloud Storage (same as flashcard)
+    @GetMapping("/video/{videoPath}")
+    public ResponseEntity<String> getVideo(@PathVariable String videoPath) {
+        try {
+            // Decode the URL-encoded path
+            String decodedPath = java.net.URLDecoder.decode(videoPath, "UTF-8");
+            
+            // Generate signed URL like flashcard does
+            com.google.cloud.storage.BlobId blobId = com.google.cloud.storage.BlobId.of(bucketName, decodedPath);
+            com.google.cloud.storage.BlobInfo blobInfo = com.google.cloud.storage.BlobInfo.newBuilder(blobId).build();
+            
+            java.net.URL signedUrl = storage.signUrl(blobInfo, 2, java.util.concurrent.TimeUnit.HOURS, 
+                com.google.cloud.storage.Storage.SignUrlOption.withV4Signature());
+            
+            System.out.println("🔍 Signed Video URL: " + signedUrl);
+            
+            // Redirect to signed URL
+            return ResponseEntity.status(302)
+                .header("Location", signedUrl.toString())
+                .build();
+                
+        } catch (Exception e) {
+            System.out.println("❌ Error serving video: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/upload-video")
+    public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
+        try {
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            String gcsUrl = vocabService.uploadToPendingVideos(file, fileName);
+            return ResponseEntity.ok(Map.of("videoUrl", gcsUrl, "fileName", fileName));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 } 
