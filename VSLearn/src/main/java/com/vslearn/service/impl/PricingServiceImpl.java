@@ -36,6 +36,8 @@ public class PricingServiceImpl implements PricingService {
                 .description(request.getDescription())
                 .price(request.getPrice())
                 .durationDays(request.getDurationDays())
+                .discountPercent(request.getDiscountPercent())
+                .isActive(request.getIsActive())
                 .createdAt(Instant.now())
                 .createdBy(1L) // TODO: Get from current user context
                 .build();
@@ -56,9 +58,7 @@ public class PricingServiceImpl implements PricingService {
         if (request.getPricingType() != null) {
             pricing.setPricingType(request.getPricingType());
         }
-        if (request.getPackageName() != null) {
-            pricing.setPackageName(request.getPackageName());
-        }
+
         if (request.getDescription() != null) {
             pricing.setDescription(request.getDescription());
         }
@@ -68,17 +68,14 @@ public class PricingServiceImpl implements PricingService {
         if (request.getDurationDays() != null) {
             pricing.setDurationDays(request.getDurationDays());
         }
-        if (request.getMaxVocabCount() != null) {
-            pricing.setMaxVocabCount(request.getMaxVocabCount());
-        }
-        if (request.getMaxTestCount() != null) {
-            pricing.setMaxTestCount(request.getMaxTestCount());
-        }
-        if (request.getIsActive() != null) {
-            pricing.setIsActive(request.getIsActive());
-        }
+
+
         if (request.getDiscountPercent() != null) {
             pricing.setDiscountPercent(request.getDiscountPercent());
+        }
+        
+        if (request.getIsActive() != null) {
+            pricing.setIsActive(request.getIsActive());
         }
         
         pricing.setUpdatedAt(Instant.now());
@@ -98,7 +95,7 @@ public class PricingServiceImpl implements PricingService {
         Pricing pricing = optionalPricing.get();
         pricing.setDeletedAt(Instant.now());
         pricing.setDeletedBy(1L); // TODO: Get from current user context
-        pricing.setIsActive(false);
+
         
         pricingRepository.save(pricing);
     }
@@ -115,12 +112,16 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public PricingListResponse getPricingList(Pageable pageable, String search, String pricingType, Boolean isActive) {
-        // TODO: Implement with proper filtering
-        Page<Pricing> pricingPage = pricingRepository.findAll(pageable);
+        // Use the new findByFilters method without isActive parameter
+        Page<Pricing> pricingPage = pricingRepository.findByFilters(pricingType, search, pageable);
         
         List<PricingDetailResponse> packages = pricingPage.getContent().stream()
+                .filter(pricing -> isActive == null || pricing.getIsActive() == isActive)
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
+        
+        long totalActive = pricingRepository.findAll().stream().filter(pricing -> pricing.getIsActive() != null && pricing.getIsActive()).count();
+        long totalInactive = pricingRepository.findAll().stream().filter(pricing -> pricing.getIsActive() != null && !pricing.getIsActive()).count();
         
         return PricingListResponse.builder()
                 .packages(packages)
@@ -129,8 +130,8 @@ public class PricingServiceImpl implements PricingService {
                 .currentPage(pricingPage.getNumber())
                 .pageSize(pricingPage.getSize())
                 .totalPricing(pricingRepository.count())
-                .activePricing(0L) // TODO: Implement when isActive field is added
-                .inactivePricing(0L) // TODO: Implement when isActive field is added
+                .activePricing(totalActive)
+                .inactivePricing(totalInactive)
                 .basicPricing(0L) // TODO: Implement when pricing types are defined
                 .premiumPricing(0L) // TODO: Implement when pricing types are defined
                 .enterprisePricing(0L) // TODO: Implement when pricing types are defined
@@ -139,9 +140,10 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public List<PricingDetailResponse> getActivePricing() {
-        // TODO: Implement when isActive field is added to entity
-        List<Pricing> allPricing = pricingRepository.findAll();
-        return allPricing.stream()
+        List<Pricing> activePricing = pricingRepository.findAll().stream()
+                .filter(pricing -> pricing.getIsActive() != null && pricing.getIsActive())
+                .collect(Collectors.toList());
+        return activePricing.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
@@ -156,10 +158,8 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public List<PricingDetailResponse> getPricingByPriceRange(Double minPrice, Double maxPrice) {
-        // TODO: Implement when price range query is needed
-        List<Pricing> allPricing = pricingRepository.findAll();
-        return allPricing.stream()
-                .filter(p -> p.getPrice() >= minPrice && p.getPrice() <= maxPrice)
+        List<Pricing> pricingInRange = pricingRepository.findByPriceRange(minPrice, maxPrice);
+        return pricingInRange.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
@@ -167,9 +167,14 @@ public class PricingServiceImpl implements PricingService {
     @Override
     public Map<String, Object> getPricingStats() {
         Map<String, Object> stats = new HashMap<>();
+        List<Pricing> allPricing = pricingRepository.findAll();
+        
+        long totalActive = allPricing.stream().filter(pricing -> pricing.getIsActive() != null && pricing.getIsActive()).count();
+        long totalInactive = allPricing.stream().filter(pricing -> pricing.getIsActive() != null && !pricing.getIsActive()).count();
+        
         stats.put("totalPricing", pricingRepository.count());
-        stats.put("activePricing", 0L); // TODO: Implement when isActive field is added
-        stats.put("inactivePricing", 0L); // TODO: Implement when isActive field is added
+        stats.put("activePricing", totalActive);
+        stats.put("inactivePricing", totalInactive);
         stats.put("basicPricing", 0L); // TODO: Implement when pricing types are defined
         stats.put("premiumPricing", 0L); // TODO: Implement when pricing types are defined
         stats.put("enterprisePricing", 0L); // TODO: Implement when pricing types are defined
@@ -179,13 +184,13 @@ public class PricingServiceImpl implements PricingService {
     
     @Override
     public PricingDetailResponse togglePricingStatus(Long pricingId) {
-        // TODO: Implement when isActive field is added to entity
         Optional<Pricing> optionalPricing = pricingRepository.findById(pricingId);
         if (optionalPricing.isEmpty()) {
             throw new RuntimeException("Pricing not found with id: " + pricingId);
         }
         
         Pricing pricing = optionalPricing.get();
+        pricing.setIsActive(!pricing.getIsActive()); // Toggle the status
         pricing.setUpdatedAt(Instant.now());
         pricing.setUpdatedBy(1L); // TODO: Get from current user context
         
@@ -203,14 +208,11 @@ public class PricingServiceImpl implements PricingService {
         return PricingDetailResponse.builder()
                 .id(pricing.getId())
                 .pricingType(pricing.getPricingType())
-                .packageName("N/A") // TODO: Add packageName field to entity
                 .description(pricing.getDescription())
                 .price(pricing.getPrice())
                 .durationDays(pricing.getDurationDays())
-                .maxVocabCount(0) // TODO: Add maxVocabCount field to entity
-                .maxTestCount(0) // TODO: Add maxTestCount field to entity
-                .isActive(true) // TODO: Add isActive field to entity
-                .discountPercent(0.0) // TODO: Add discountPercent field to entity
+                .discountPercent(pricing.getDiscountPercent())
+                .isActive(pricing.getIsActive())
                 .createdAt(pricing.getCreatedAt())
                 .createdBy(pricing.getCreatedBy())
                 .updatedAt(pricing.getUpdatedAt())
