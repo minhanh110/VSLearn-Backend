@@ -14,7 +14,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+@CrossOrigin(origins = "*", allowCredentials = "false")
 public class AdminController {
     private final AdminService adminService;
 
@@ -139,8 +139,40 @@ public class AdminController {
     @GetMapping("/test")
     public ResponseEntity<Map<String, Object>> testEndpoint() {
         return ResponseEntity.ok(Map.of(
-            "message", "Admin endpoint is working",
-            "timestamp", System.currentTimeMillis()
+            "success", true,
+            "message", "Admin API is working"
+        ));
+    }
+
+    @GetMapping("/users/learners/test")
+    public ResponseEntity<Map<String, Object>> testLearnersEndpoint() {
+        Map<String, Object> data = Map.of(
+            "content", new Object[0],
+            "totalElements", 0,
+            "totalPages", 0,
+            "currentPage", 0,
+            "pageSize", 10
+        );
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Learners API is working",
+            "data", data
+        ));
+    }
+
+    @GetMapping("/users/creators/test")
+    public ResponseEntity<Map<String, Object>> testCreatorsEndpoint() {
+        Map<String, Object> data = Map.of(
+            "content", new Object[0],
+            "totalElements", 0,
+            "totalPages", 0,
+            "currentPage", 0,
+            "pageSize", 10
+        );
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Creators API is working",
+            "data", data
         ));
     }
 } 
