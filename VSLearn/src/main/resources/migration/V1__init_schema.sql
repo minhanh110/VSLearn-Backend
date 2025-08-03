@@ -162,7 +162,14 @@ CREATE TABLE transactions (
                               FOREIGN KEY (pricing_id) REFERENCES pricing(id) ON DELETE CASCADE,
                               FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 );
+ALTER TABLE transactions
+ADD COLUMN amount DOUBLE NULL AFTER created_at;
 
+ALTER TABLE transactions
+ADD COLUMN payment_status VARCHAR(20) NULL AFTER amount;
+
+ALTER TABLE transactions
+ADD COLUMN description TEXT NULL AFTER payment_status; 
 
 
 
