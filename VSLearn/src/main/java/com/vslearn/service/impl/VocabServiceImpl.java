@@ -4,6 +4,9 @@ import com.vslearn.dto.request.VocabCreateRequest;
 import com.vslearn.dto.request.VocabUpdateRequest;
 import com.vslearn.dto.response.VocabDetailResponse;
 import com.vslearn.dto.response.VocabListResponse;
+import com.vslearn.dto.response.VideoUploadResponse;
+import com.vslearn.dto.response.VideoMetadata;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vslearn.entities.Vocab;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.entities.Topic;
@@ -223,11 +226,37 @@ public class VocabServiceImpl implements VocabService {
         
         // Create VocabArea with video and description
         if (area != null) {
+            // Prepare description with video metadata if video exists
+            String description = request.getDescription();
+            if (request.getVideoLink() != null && !request.getVideoLink().isEmpty()) {
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    VideoMetadata videoMetadata = VideoMetadata.builder()
+                        .fileName(request.getVideoFileName())
+                        .fileSize(request.getVideoSize())
+                        .duration(request.getVideoDuration())
+                        .contentType(request.getVideoContentType())
+                        .uploadedAt(Instant.now())
+                        .build();
+                    
+                    // Create JSON object with description and video metadata
+                    Map<String, Object> descriptionWithMetadata = Map.of(
+                        "description", description != null ? description : "",
+                        "videoMetadata", videoMetadata
+                    );
+                    
+                    description = objectMapper.writeValueAsString(descriptionWithMetadata);
+                } catch (Exception e) {
+                    // If JSON creation fails, use original description
+                    System.err.println("Error creating video metadata JSON: " + e.getMessage());
+                }
+            }
+            
             VocabArea vocabArea = VocabArea.builder()
                     .vocab(savedVocab)
                     .area(area)
                     .vocabAreaVideo(request.getVideoLink())
-                    .vocabAreaDescription(request.getDescription())
+                    .vocabAreaDescription(description)
                     .createdAt(Instant.now())
                     .createdBy(1L) // TODO: Get from current user
                     .build();
@@ -339,13 +368,45 @@ public class VocabServiceImpl implements VocabService {
     }
 
     @Override
-    public String uploadToPendingVideos(org.springframework.web.multipart.MultipartFile file, String fileName) throws Exception {
-        Storage storage = StorageOptions.getDefaultInstance().getService();
-        String objectName = "pending-videos/" + fileName;
+    public VideoUploadResponse uploadVideoToGCS(org.springframework.web.multipart.MultipartFile file, String fileName) throws Exception {
+        // Generate unique object name
+        String objectName = "vocab-videos/" + fileName;
+        
+        // Upload to GCS
         BlobId blobId = BlobId.of(bucketName, objectName);
-        BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType(file.getContentType()).build();
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+            .setContentType(file.getContentType())
+            .setMetadata(Map.of(
+                "originalName", file.getOriginalFilename(),
+                "uploadedAt", Instant.now().toString(),
+                "fileSize", String.valueOf(file.getSize())
+            ))
+            .build();
+        
         storage.create(blobInfo, file.getBytes());
-        return String.format("https://storage.googleapis.com/%s/%s", bucketName, objectName);
+        
+        // Generate signed URL for immediate access
+        java.net.URL signedUrl = storage.signUrl(blobInfo, 24, java.util.concurrent.TimeUnit.HOURS, 
+            Storage.SignUrlOption.withV4Signature());
+        
+        return VideoUploadResponse.builder()
+            .videoUrl(signedUrl.toString())
+            .fileName(fileName)
+            .objectName(objectName)
+            .fileSize(file.getSize())
+            .contentType(file.getContentType())
+            .metadata(Map.of(
+                "bucket", bucketName,
+                "objectName", objectName
+            ))
+            .build();
+    }
+    
+    @Override
+    public void deleteVideoFromGCS(String fileName) throws Exception {
+        String objectName = "vocab-videos/" + fileName;
+        BlobId blobId = BlobId.of(bucketName, objectName);
+        storage.delete(blobId);
     }
 
     private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {

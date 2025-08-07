@@ -266,6 +266,24 @@ CREATE TABLE word (
                       deleted_by INT UNSIGNED
 );
 
+CREATE TABLE notify (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    content TEXT NOT NULL,
+    from_user_id INT UNSIGNED NOT NULL,
+    to_user_id INT UNSIGNED NOT NULL,
+    is_send BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL,
+    created_by INT UNSIGNED NOT NULL,
+    updated_at DATETIME,
+    updated_by INT UNSIGNED,
+    deleted_at DATETIME,
+    deleted_by INT UNSIGNED,
+    FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
+);
 
 -- các topic và subtopic
 INSERT INTO topic (topic_name, is_free, status, created_at, created_by)
