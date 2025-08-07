@@ -103,6 +103,8 @@ public class TransactionServiceImpl implements TransactionService {
                 currentUser.setId(1L);
             }
             
+            log.info("🔍 Creating transaction for user: {}", currentUser.getId());
+            
             // Lấy pricing từ database theo pricingId
             Pricing pricing = pricingRepository.findById(pricingId).orElse(null);
             if (pricing == null) {

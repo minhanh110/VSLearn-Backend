@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -125,59 +126,48 @@ public class CassoServiceImpl implements CassoService {
             
             log.info("Found {} transactions from Casso API", transactions.size());
             
+            // Log tất cả transactions để debug
             for (CassoTransactionResponse.CassoTransaction transaction : transactions) {
-                log.info("Checking transaction: ID={}, Amount={}, Description={}", 
-                        transaction.getId(), transaction.getAmount(), transaction.getDescription());
-                
-                // Kiểm tra description có chứa transaction code không
-                log.info("Looking for transaction code '{}' in description: '{}'", 
-                        transactionCode, transaction.getDescription());
-                
-                if (transaction.getDescription() != null && 
-                    transaction.getDescription().contains(transactionCode)) {
-                    
-                    log.info("Found matching transaction code in description!");
-                    
-                    // Kiểm tra amount (Casso trả về số âm cho giao dịch ra, dương cho giao dịch vào)
-                    double transactionAmount = Math.abs(transaction.getAmount());
-                    
-                    log.info("Transaction amount: {}, Expected amount: {}, Difference: {}", 
-                            transactionAmount, expectedAmount, Math.abs(transactionAmount - expectedAmount));
-                    
-                    if (Math.abs(transactionAmount - expectedAmount) < 1000) { // Cho phép sai số 1000 VND
-                        log.info("Payment found: Transaction ID={}, Amount={}, Description={}", 
-                                transaction.getId(), transaction.getAmount(), transaction.getDescription());
-                        return true;
-                    } else {
-                        log.info("Amount mismatch! Transaction amount: {}, Expected: {}", transactionAmount, expectedAmount);
-                    }
-                } else {
-                    log.info("Transaction code not found in description: {}", transaction.getDescription());
-                }
+                log.info("Casso Transaction: ID={}, Amount={}, Description={}, When={}", 
+                        transaction.getId(), transaction.getAmount(), transaction.getDescription(), transaction.getWhen());
             }
             
-            // Fallback: Check theo amount nếu không tìm thấy transaction code
-            log.info("Transaction code not found, trying to match by amount only...");
+            // Tính thời gian hiện tại để so sánh
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime thirtyMinutesAgo = now.minusMinutes(30);
+            
+            log.info("Looking for transactions from {} to {} (within last 30 minutes)", thirtyMinutesAgo, now);
+            
             for (CassoTransactionResponse.CassoTransaction transaction : transactions) {
                 double transactionAmount = Math.abs(transaction.getAmount());
-                log.info("Checking amount: Transaction amount={}, Expected amount={}, Difference={}", 
-                        transactionAmount, expectedAmount, Math.abs(transactionAmount - expectedAmount));
                 
-                if (Math.abs(transactionAmount - expectedAmount) < 1000) {
-                    log.info("Payment found by amount: Transaction ID={}, Amount={}, Description={}", 
+                // Kiểm tra amount trước
+                if (Math.abs(transactionAmount - expectedAmount) < 1000) { // Cho phép sai số 1000 VND
+                    log.info("Amount matches! Transaction ID={}, Amount={}, Description={}", 
                             transaction.getId(), transaction.getAmount(), transaction.getDescription());
-                    return true;
+                    
+                    // Kiểm tra thời gian (trong vòng 30 phút gần nhất)
+                    if (transaction.getWhen() != null) {
+                        LocalDateTime transactionTime = LocalDateTime.parse(transaction.getWhen(), 
+                                DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                        
+                        log.info("Transaction time: {}, 30 minutes ago: {}, Is recent: {}", 
+                                transactionTime, thirtyMinutesAgo, transactionTime.isAfter(thirtyMinutesAgo));
+                        
+                        if (transactionTime.isAfter(thirtyMinutesAgo)) {
+                            log.info("✅ Payment confirmed! Transaction ID={}, Amount={}, Time={}, Description={}", 
+                                    transaction.getId(), transaction.getAmount(), transaction.getWhen(), transaction.getDescription());
+                            return true;
+                        } else {
+                            log.info("❌ Transaction too old: {}", transaction.getWhen());
+                        }
+                    } else {
+                        log.warn("Transaction has no timestamp: {}", transaction.getId());
+                    }
                 }
             }
             
-            log.info("Payment not found for transaction code: {} with amount: {}", transactionCode, expectedAmount);
-            
-            // TODO: Tạm thời mock payment để test - XÓA SAU KHI TEST XONG
-            // if (transactionCode.contains("TXN_")) {
-            //     log.info("MOCK PAYMENT: Simulating successful payment for amount: {}", expectedAmount);
-            //     return true;
-            // }
-            
+            log.info("Payment not found for amount: {} in last 30 minutes", expectedAmount);
             return false;
             
         } catch (Exception e) {

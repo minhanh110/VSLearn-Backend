@@ -4,6 +4,7 @@ import com.vslearn.dto.request.VocabCreateRequest;
 import com.vslearn.dto.request.VocabUpdateRequest;
 import com.vslearn.dto.response.VocabDetailResponse;
 import com.vslearn.dto.response.VocabListResponse;
+import com.vslearn.dto.response.VideoUploadResponse;
 import com.vslearn.entities.Vocab;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.repository.VocabRepository;
@@ -201,11 +202,62 @@ public class VocabController {
     @PostMapping("/upload-video")
     public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
         try {
+            // Validation
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, 
+                    "message", "File không được để trống"
+                ));
+            }
+            
+            // File size validation (50MB)
+            if (file.getSize() > 50 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "File quá lớn. Tối đa 50MB"
+                ));
+            }
+            
+            // File type validation
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("video/")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Chỉ chấp nhận file video"
+                ));
+            }
+            
             String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            String gcsUrl = vocabService.uploadToPendingVideos(file, fileName);
-            return ResponseEntity.ok(Map.of("videoUrl", gcsUrl, "fileName", fileName));
+            VideoUploadResponse response = vocabService.uploadVideoToGCS(file, fileName);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Upload video thành công",
+                "data", response
+            ));
+            
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
+    }
+    
+    @DeleteMapping("/video/{fileName}")
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    public ResponseEntity<?> deleteVideo(@PathVariable String fileName) {
+        try {
+            vocabService.deleteVideoFromGCS(fileName);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Xóa video thành công"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
         }
     }
 } 

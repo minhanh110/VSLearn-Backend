@@ -65,14 +65,18 @@ public class VietQRServiceImpl implements VietQRService {
             try {
                 String authHeader = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
                         .getRequest().getHeader("Authorization");
+                System.out.println("🔍 Auth header: " + (authHeader != null ? authHeader.substring(0, Math.min(50, authHeader.length())) + "..." : "null"));
+                
                 if (authHeader != null && authHeader.startsWith("Bearer ")) {
                     String token = authHeader.replace("Bearer ", "");
                     String userIdStr = jwtUtil.getClaimsFromToken(token).getClaims().get("id").toString();
                     userId = Long.parseLong(userIdStr);
-                    System.out.println("Found user ID from JWT: " + userId);
+                    System.out.println("✅ Found user ID from JWT: " + userId);
+                } else {
+                    System.out.println("❌ No valid Authorization header found");
                 }
             } catch (Exception e) {
-                System.out.println("Error getting user ID from JWT: " + e.getMessage());
+                System.out.println("❌ Error getting user ID from JWT: " + e.getMessage());
             }
             
             // Lưu transaction vào database với user ID
@@ -187,8 +191,11 @@ public class VietQRServiceImpl implements VietQRService {
     @Override
     public boolean checkPaymentStatus(String transactionCode) {
         try {
+            System.out.println("🔍 Checking payment status for: " + transactionCode);
+            
             // Kiểm tra trong database trước
             if (transactionService.isTransactionPaid(transactionCode)) {
+                System.out.println("✅ Transaction already PAID in database: " + transactionCode);
                 return true;
             }
             
@@ -198,18 +205,27 @@ public class VietQRServiceImpl implements VietQRService {
                 var transaction = transactionOpt.get();
                 double expectedAmount = transaction.getAmount();
                 
+                System.out.println("🔍 Transaction found in DB: " + transactionCode + ", Amount: " + expectedAmount + ", Status: " + transaction.getPaymentStatus());
+                
                 // Sử dụng Casso API để check payment status
                 boolean isPaid = cassoService.checkPaymentStatus(transactionCode, expectedAmount);
                 
+                System.out.println("🔍 Casso API result: " + isPaid);
+                
                 // Nếu thanh toán thành công, cập nhật database
                 if (isPaid) {
+                    System.out.println("✅ Payment confirmed, updating database...");
                     transactionService.updatePaymentStatus(
                         transactionCode, 
                         Transaction.PaymentStatus.PAID
                     );
+                } else {
+                    System.out.println("❌ Payment not confirmed by Casso API");
                 }
                 
                 return isPaid;
+            } else {
+                System.out.println("❌ Transaction not found in database: " + transactionCode);
             }
             
             return false;

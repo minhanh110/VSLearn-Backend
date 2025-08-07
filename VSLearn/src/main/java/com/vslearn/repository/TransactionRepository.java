@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +52,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * Cập nhật payment status của transaction
      */
     @Modifying
+    @Transactional
     @Query("UPDATE Transaction t SET t.paymentStatus = :status WHERE t.code = :code")
     void updatePaymentStatus(@Param("code") String code, @Param("status") Transaction.PaymentStatus status);
 } 

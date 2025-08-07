@@ -175,4 +175,73 @@ public class AdminController {
             "data", data
         ));
     }
+
+    // ==================== LEARNER DETAILS ====================
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/packages")
+    public ResponseEntity<Map<String, Object>> getLearnerPackages(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getLearnerPackages(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/activities")
+    public ResponseEntity<Map<String, Object>> getLearnerActivities(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getLearnerActivities(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/detailed-stats")
+    public ResponseEntity<Map<String, Object>> getLearnerDetailedStats(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getLearnerDetailedStats(userId);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== CREATOR DETAILS ====================
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/topics")
+    public ResponseEntity<Map<String, Object>> getCreatorTopics(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getCreatorTopics(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/vocabularies")
+    public ResponseEntity<Map<String, Object>> getCreatorVocabularies(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getCreatorVocabularies(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/creator-stats")
+    public ResponseEntity<Map<String, Object>> getCreatorDetailedStats(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getCreatorDetailedStats(userId);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== APPROVER DETAILS ====================
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/approved-topics")
+    public ResponseEntity<Map<String, Object>> getApproverTopics(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getApproverTopics(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/approved-vocabularies")
+    public ResponseEntity<Map<String, Object>> getApproverVocabularies(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getApproverVocabularies(userId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
+    @GetMapping("/users/{userId}/approver-stats")
+    public ResponseEntity<Map<String, Object>> getApproverDetailedStats(@PathVariable Long userId) {
+        Map<String, Object> result = adminService.getApproverDetailedStats(userId);
+        return ResponseEntity.ok(result);
+    }
 } 

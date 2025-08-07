@@ -28,10 +28,13 @@ public class PricingCreateRequest {
     
 
     
-
+    
     
     @Builder.Default
     @DecimalMin(value = "0.0", message = "Discount percent must be greater than or equal to 0")
     @DecimalMax(value = "100.0", message = "Discount percent must be less than or equal to 100")
     private Double discountPercent = 0.0;
+    
+    @Builder.Default
+    private Boolean isActive = true;
 } 

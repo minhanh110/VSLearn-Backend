@@ -17,11 +17,14 @@ public class PaymentController {
     
     private final VietQRService vietQRService;
     private final CassoService cassoService;
+    private final com.vslearn.repository.TransactionRepository transactionRepository;
     
     @Autowired
-    public PaymentController(VietQRService vietQRService, CassoService cassoService) {
+    public PaymentController(VietQRService vietQRService, CassoService cassoService, 
+                           com.vslearn.repository.TransactionRepository transactionRepository) {
         this.vietQRService = vietQRService;
         this.cassoService = cassoService;
+        this.transactionRepository = transactionRepository;
     }
     
     /**
@@ -70,7 +73,11 @@ public class PaymentController {
     @GetMapping("/status/{transactionCode}")
     public ResponseEntity<Map<String, Object>> checkPaymentStatus(@PathVariable String transactionCode) {
         try {
+            System.out.println("🔍 VietQR status check called for: " + transactionCode);
+            
             boolean isPaid = vietQRService.checkPaymentStatus(transactionCode);
+            
+            System.out.println("🔍 VietQR status check result: " + isPaid);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -146,7 +153,21 @@ public class PaymentController {
             @PathVariable String transactionCode,
             @RequestParam(defaultValue = "299000") double amount) {
         try {
+            System.out.println("🔍 Casso check called for: " + transactionCode + ", amount: " + amount);
+            
             boolean isPaid = cassoService.checkPaymentStatus(transactionCode, amount);
+            
+            System.out.println("🔍 Casso check result: " + isPaid);
+            
+            // Nếu payment confirmed, update transaction status
+            if (isPaid) {
+                try {
+                    transactionRepository.updatePaymentStatus(transactionCode, com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                    System.out.println("✅ Transaction status updated to PAID for: " + transactionCode);
+                } catch (Exception updateError) {
+                    System.out.println("❌ Error updating transaction status: " + updateError.getMessage());
+                }
+            }
             
             return ResponseEntity.ok(Map.of(
                 "success", true,

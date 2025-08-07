@@ -15,8 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/users")
-@CrossOrigin(origins = "http://localhost:3000")
+@RequestMapping({"/users", "/api/v1/users"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class UserController {
     private final UserService userService;
 
@@ -59,6 +59,7 @@ public class UserController {
     public ResponseEntity<ResponseData<?>> getSubscriptionStatus(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         return userService.getSubscriptionStatus(authHeader);
     }
+
 
     @PutMapping("/change-password")
     public ResponseEntity<ResponseData<?>> changePassword(@RequestHeader("Authorization") String authHeader, @RequestBody @Valid ChangePasswordDTO dto) {
