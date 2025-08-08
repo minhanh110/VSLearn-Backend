@@ -25,5 +25,12 @@ public class VocabCreateRequest {
 
     // Thêm trường meaning
     private String meaning;
+    
+    // Video metadata (không lưu vào entity chính)
+    private Long videoSize;
+    private String videoDuration;
+    private String videoFileName;
+    private String videoContentType;
+    
     // Status sẽ được set tự động thành "pending" cho Content Creator
 } 

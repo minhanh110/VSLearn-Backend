@@ -17,6 +17,7 @@ public class PricingDetailResponse {
     private Long durationDays;
 
     private Double discountPercent;
+    private Boolean isActive;
     private Instant createdAt;
     private Long createdBy;
     private Instant updatedAt;
