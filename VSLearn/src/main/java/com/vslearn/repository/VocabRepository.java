@@ -164,4 +164,29 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
     Page<Vocab> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
     Page<Vocab> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
     List<Vocab> findBySubTopic_Id(Long subTopicId);
+    
+    // ========== CAMERA SIGN METHODS ==========
+    
+    // Find by status only (for camera sign)
+    Page<Vocab> findByStatus(String status, Pageable pageable);
+    List<Vocab> findByStatus(String status);
+    
+    // Find by vocab areas area name and status
+    @Query("SELECT DISTINCT v FROM Vocab v JOIN v.vocabAreas va JOIN va.area a " +
+           "WHERE v.status = :status AND LOWER(a.areaName) = LOWER(:areaName)")
+    List<Vocab> findByVocabAreas_Area_AreaNameAndStatus(String areaName, String status);
+    
+    // Find by sub topic sort order and status
+    @Query("SELECT v FROM Vocab v WHERE v.status = :status AND v.subTopic.sortOrder <= :sortOrder")
+    List<Vocab> findBySubTopic_SortOrderLessThanEqualAndStatus(Long sortOrder, String status);
+    
+    @Query("SELECT v FROM Vocab v WHERE v.status = :status AND v.subTopic.sortOrder BETWEEN :minSortOrder AND :maxSortOrder")
+    List<Vocab> findBySubTopic_SortOrderBetweenAndStatus(Long minSortOrder, Long maxSortOrder, String status);
+    
+    @Query("SELECT v FROM Vocab v WHERE v.status = :status AND v.subTopic.sortOrder > :sortOrder")
+    List<Vocab> findBySubTopic_SortOrderGreaterThanAndStatus(Long sortOrder, String status);
+    
+    // Find by vocab containing and status
+    @Query("SELECT v FROM Vocab v WHERE v.status = :status AND LOWER(v.vocab) LIKE LOWER(CONCAT('%', :vocab, '%'))")
+    List<Vocab> findByVocabContainingIgnoreCaseAndStatus(String vocab, String status);
 } 

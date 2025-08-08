@@ -51,6 +51,12 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/vocab/regions").permitAll()
                 .requestMatchers("/api/v1/vocab/list").permitAll()
                 .requestMatchers("/api/v1/vocab/{vocabId}").permitAll()
+                .requestMatchers("/api/v1/vocab").permitAll()
+                .requestMatchers("/api/v1/vocab/category/**").permitAll()
+                .requestMatchers("/api/v1/vocab/difficulty/**").permitAll()
+                .requestMatchers("/api/v1/vocab/search").permitAll()
+                .requestMatchers("/api/ai/**").permitAll()
+                .requestMatchers("/api/test/**").permitAll()
                 .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/payment/**").permitAll() // Allow OPTIONS for payment endpoints
 
@@ -104,13 +110,13 @@ public class SystemConfig implements WebMvcConfigurer {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
-        // Tạm thời disable JWT authentication cho pricing endpoints
-        http.oauth2ResourceServer(oauth2 -> {
-            oauth2.jwt(jwtConfigurer -> {
-                jwtConfigurer.decoder(jwtDecoder());
-                jwtConfigurer.jwtAuthenticationConverter(jwtAuthenticationConverter());
-            });
-        });
+        // Tạm thời disable JWT authentication cho development
+        // http.oauth2ResourceServer(oauth2 -> {
+        //     oauth2.jwt(jwtConfigurer -> {
+        //         jwtConfigurer.decoder(jwtDecoder());
+        //         jwtConfigurer.jwtAuthenticationConverter(jwtAuthenticationConverter());
+        //     });
+        // });
         return http.build();
     }
 

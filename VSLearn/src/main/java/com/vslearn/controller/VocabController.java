@@ -5,6 +5,7 @@ import com.vslearn.dto.request.VocabUpdateRequest;
 import com.vslearn.dto.response.VocabDetailResponse;
 import com.vslearn.dto.response.VocabListResponse;
 import com.vslearn.dto.response.VideoUploadResponse;
+import com.vslearn.dto.VocabularyDTO;
 import com.vslearn.entities.Vocab;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.repository.VocabRepository;
@@ -258,6 +259,237 @@ public class VocabController {
                 "success", false,
                 "message", "Có lỗi xảy ra: " + e.getMessage()
             ));
+        }
+    }
+
+    // ========== CAMERA SIGN ENDPOINTS ==========
+    
+    // Lấy tất cả vocabulary cho camera sign (không phân trang)
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> getAllVocabulary(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Vocab> vocabPage = vocabRepository.findByStatus("active", pageable);
+            System.out.println("DEBUG - Query executed with status: active");
+            System.out.println("DEBUG - Total elements found: " + vocabPage.getTotalElements());
+            if (vocabPage.getContent().isEmpty()) {
+                System.out.println("DEBUG - No content found!");
+            } else {
+                System.out.println("DEBUG - First vocab: " + vocabPage.getContent().get(0).getVocab());
+                System.out.println("DEBUG - First vocab status: " + vocabPage.getContent().get(0).getStatus());
+            }
+            
+            List<VocabularyDTO> vocabularyList = vocabPage.getContent().stream()
+                .map(vocab -> {
+                    VocabularyDTO dto = new VocabularyDTO();
+                    dto.setId(vocab.getId());
+                    dto.setVocab(vocab.getVocab());
+                    dto.setMeaning(vocab.getMeaning());
+                    
+                    // Lấy thông tin từ SubTopic
+                    if (vocab.getSubTopic() != null) {
+                        dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
+                        if (vocab.getSubTopic().getTopic() != null) {
+                            dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                        }
+                    }
+                    
+                    // Lấy thông tin từ VocabArea (video và description)
+                    if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
+                        var vocabArea = vocab.getVocabAreas().get(0); // Lấy area đầu tiên
+                        dto.setVideoUrl(vocabArea.getVocabAreaVideo());
+                        dto.setDescription(vocabArea.getVocabAreaDescription());
+                        dto.setAreaName(vocabArea.getArea().getAreaName());
+                        dto.setCategory(vocabArea.getArea().getAreaName()); // Sử dụng area name làm category
+                        
+                        // Tính difficulty dựa trên sortOrder
+                        if (vocab.getSubTopic() != null && vocab.getSubTopic().getSortOrder() != null) {
+                            long sortOrder = vocab.getSubTopic().getSortOrder();
+                            if (sortOrder <= 3) dto.setDifficulty("easy");
+                            else if (sortOrder <= 6) dto.setDifficulty("medium");
+                            else dto.setDifficulty("hard");
+                        } else {
+                            dto.setDifficulty("medium");
+                        }
+                    }
+                    
+                    return dto;
+                })
+                .toList();
+            
+            return ResponseEntity.ok(Map.of(
+                "content", vocabularyList,
+                "totalElements", vocabPage.getTotalElements(),
+                "totalPages", vocabPage.getTotalPages(),
+                "currentPage", page
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to fetch vocabulary: " + e.getMessage()
+            ));
+        }
+    }
+
+    // Lấy vocabulary theo category (area name)
+    @GetMapping("/category/{category}")
+    public ResponseEntity<List<VocabularyDTO>> getVocabularyByCategory(@PathVariable String category) {
+        try {
+            // Tìm vocab theo area name
+            List<Vocab> vocabList = vocabRepository.findByVocabAreas_Area_AreaNameAndStatus(category, "active");
+            
+            List<VocabularyDTO> vocabularyList = vocabList.stream()
+                .map(vocab -> {
+                    VocabularyDTO dto = new VocabularyDTO();
+                    dto.setId(vocab.getId());
+                    dto.setVocab(vocab.getVocab());
+                    dto.setMeaning(vocab.getMeaning());
+                    
+                    if (vocab.getSubTopic() != null) {
+                        dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
+                        if (vocab.getSubTopic().getTopic() != null) {
+                            dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                        }
+                    }
+                    
+                    if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
+                        var vocabArea = vocab.getVocabAreas().get(0);
+                        dto.setVideoUrl(vocabArea.getVocabAreaVideo());
+                        dto.setDescription(vocabArea.getVocabAreaDescription());
+                        dto.setAreaName(vocabArea.getArea().getAreaName());
+                        dto.setCategory(vocabArea.getArea().getAreaName());
+                        
+                        if (vocab.getSubTopic() != null && vocab.getSubTopic().getSortOrder() != null) {
+                            long sortOrder = vocab.getSubTopic().getSortOrder();
+                            if (sortOrder <= 3) dto.setDifficulty("easy");
+                            else if (sortOrder <= 6) dto.setDifficulty("medium");
+                            else dto.setDifficulty("hard");
+                        } else {
+                            dto.setDifficulty("medium");
+                        }
+                    }
+                    
+                    return dto;
+                })
+                .toList();
+            
+            return ResponseEntity.ok(vocabularyList);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Lấy vocabulary theo difficulty
+    @GetMapping("/difficulty/{difficulty}")
+    public ResponseEntity<List<VocabularyDTO>> getVocabularyByDifficulty(@PathVariable String difficulty) {
+        try {
+            List<Vocab> vocabList;
+            
+            // Lọc theo sortOrder để xác định difficulty
+            switch (difficulty.toLowerCase()) {
+                case "easy":
+                    vocabList = vocabRepository.findBySubTopic_SortOrderLessThanEqualAndStatus(3L, "active");
+                    break;
+                case "medium":
+                    vocabList = vocabRepository.findBySubTopic_SortOrderBetweenAndStatus(4L, 6L, "active");
+                    break;
+                case "hard":
+                    vocabList = vocabRepository.findBySubTopic_SortOrderGreaterThanAndStatus(6L, "active");
+                    break;
+                default:
+                    vocabList = vocabRepository.findByStatus("active");
+            }
+            
+            List<VocabularyDTO> vocabularyList = vocabList.stream()
+                .map(vocab -> {
+                    VocabularyDTO dto = new VocabularyDTO();
+                    dto.setId(vocab.getId());
+                    dto.setVocab(vocab.getVocab());
+                    dto.setMeaning(vocab.getMeaning());
+                    
+                    if (vocab.getSubTopic() != null) {
+                        dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
+                        if (vocab.getSubTopic().getTopic() != null) {
+                            dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                        }
+                    }
+                    
+                    if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
+                        var vocabArea = vocab.getVocabAreas().get(0);
+                        dto.setVideoUrl(vocabArea.getVocabAreaVideo());
+                        dto.setDescription(vocabArea.getVocabAreaDescription());
+                        dto.setAreaName(vocabArea.getArea().getAreaName());
+                        dto.setCategory(vocabArea.getArea().getAreaName());
+                        
+                        if (vocab.getSubTopic() != null && vocab.getSubTopic().getSortOrder() != null) {
+                            long sortOrder = vocab.getSubTopic().getSortOrder();
+                            if (sortOrder <= 3) dto.setDifficulty("easy");
+                            else if (sortOrder <= 6) dto.setDifficulty("medium");
+                            else dto.setDifficulty("hard");
+                        } else {
+                            dto.setDifficulty("medium");
+                        }
+                    }
+                    
+                    return dto;
+                })
+                .toList();
+            
+            return ResponseEntity.ok(vocabularyList);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Search vocabulary
+    @GetMapping("/search")
+    public ResponseEntity<List<VocabularyDTO>> searchVocabulary(@RequestParam String q) {
+        try {
+            List<Vocab> vocabList = vocabRepository.findByVocabContainingIgnoreCaseAndStatus(q, "active");
+            
+            List<VocabularyDTO> vocabularyList = vocabList.stream()
+                .map(vocab -> {
+                    VocabularyDTO dto = new VocabularyDTO();
+                    dto.setId(vocab.getId());
+                    dto.setMeaning(vocab.getMeaning());
+                    dto.setVocab(vocab.getVocab());
+                    
+                    if (vocab.getSubTopic() != null) {
+                        dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
+                        if (vocab.getSubTopic().getTopic() != null) {
+                            dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                        }
+                    }
+                    
+                    if (vocab.getVocabAreas() != null && !vocab.getVocabAreas().isEmpty()) {
+                        var vocabArea = vocab.getVocabAreas().get(0);
+                        dto.setVideoUrl(vocabArea.getVocabAreaVideo());
+                        dto.setDescription(vocabArea.getVocabAreaDescription());
+                        dto.setAreaName(vocabArea.getArea().getAreaName());
+                        dto.setCategory(vocabArea.getArea().getAreaName());
+                        
+                        if (vocab.getSubTopic() != null && vocab.getSubTopic().getSortOrder() != null) {
+                            long sortOrder = vocab.getSubTopic().getSortOrder();
+                            if (sortOrder <= 3) dto.setDifficulty("easy");
+                            else if (sortOrder <= 6) dto.setDifficulty("medium");
+                            else dto.setDifficulty("hard");
+                        } else {
+                            dto.setDifficulty("medium");
+                        }
+                    }
+                    
+                    return dto;
+                })
+                .toList();
+            
+            return ResponseEntity.ok(vocabularyList);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 } 
