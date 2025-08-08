@@ -2,7 +2,6 @@ package com.vslearn.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -15,27 +14,37 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "option_answers", indexes = {
-        @Index(name = "test_question_id", columnList = "test_question_id")
+@Table(name = "notification", indexes = {
+        @Index(name = "idx_notification_to_user", columnList = "to_user_id"),
+        @Index(name = "idx_notification_is_send", columnList = "is_send"),
+        @Index(name = "idx_notification_created_at", columnList = "created_at")
 })
-public class OptionAnswer {
+public class Notification {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "test_question_id", nullable = false)
-    private TestQuestion testQuestion;
-
-    @Size(max = 255)
-    @Column(name = "type_content")
-    private String typeContent;
+    @Lob
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
+    private String content;
 
     @NotNull
-    @Column(name = "is_correct", nullable = false)
-    private Boolean isCorrect = false;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "from_user_id", nullable = false)
+    private User fromUser;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "to_user_id", nullable = false)
+    private User toUser;
+
+    @NotNull
+    @Column(name = "is_send", nullable = false)
+    private Boolean isSend = false;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -55,5 +64,4 @@ public class OptionAnswer {
 
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
-
-}
+} 
