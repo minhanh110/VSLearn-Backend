@@ -17,10 +17,13 @@ import com.vslearn.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +39,44 @@ public class TopicServiceImpl implements TopicService {
         this.subTopicRepository = subTopicRepository;
         this.vocabRepository = vocabRepository;
     }
+
+    // Helper method to get current user ID from security context
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
+            // Extract user ID from JWT claims or user details
+            // This is a simplified version - you might need to adjust based on your JWT structure
+            return 1L; // TODO: Extract actual user ID from JWT claims
+        }
+        return null;
+    }
+
+    // Helper method to check if user can modify topic
+    private boolean canModifyTopic(Topic topic, String userRole) {
+        if (userRole == null) return false;
+        
+        // General manager and content approver can modify all topics
+        if ("ROLE_GENERAL_MANAGER".equals(userRole) || "ROLE_CONTENT_APPROVER".equals(userRole)) {
+            return true;
+        }
+        
+        // Content creator can only modify their own topics
+        if ("ROLE_CONTENT_CREATOR".equals(userRole)) {
+            Long currentUserId = getCurrentUserId();
+            return currentUserId != null && currentUserId.equals(topic.getCreatedBy());
+        }
+        
+        return false;
+    }
+
+    // Helper method to get current user role
+    private String getCurrentUserRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getAuthorities() != null) {
+            return authentication.getAuthorities().iterator().next().getAuthority();
+        }
+        return null;
+    }
     
     @Override
     public TopicListResponse getTopicList(Pageable pageable, String search, String status, Long createdBy) {
@@ -47,7 +88,12 @@ public class TopicServiceImpl implements TopicService {
                 topicPage = topicRepository.findByCreatedByAndDeletedAtIsNull(createdBy, pageable);
             }
         } else if (status != null && !status.trim().isEmpty()) {
-            topicPage = topicRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+            // If requesting a particular status, prefer ordering by sortOrder for active lists
+            if ("active".equalsIgnoreCase(status)) {
+                topicPage = topicRepository.findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(status, pageable);
+            } else {
+                topicPage = topicRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+            }
         } else if (search != null && !search.trim().isEmpty()) {
             topicPage = topicRepository.findByTopicNameContainingIgnoreCaseAndDeletedAtIsNull(search, pageable);
         } else {
@@ -66,7 +112,22 @@ public class TopicServiceImpl implements TopicService {
                 .hasPrevious(topicPage.hasPrevious())
                 .build();
     }
-    
+
+    @Override
+    public void reorderTopics(List<Map<String, Object>> items) {
+        // Expecting list of { id, sortOrder }
+        for (Map<String, Object> item : items) {
+            Long id = Long.parseLong(item.get("id").toString());
+            Long sortOrder = Long.parseLong(item.get("sortOrder").toString());
+            Topic topic = topicRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Topic not found with id: " + id));
+            topic.setSortOrder(sortOrder);
+            topic.setUpdatedAt(Instant.now());
+            topic.setUpdatedBy(getCurrentUserId());
+            topicRepository.save(topic);
+        }
+    }
+
     @Override
     public TopicDetailResponse getTopicDetail(Long topicId) {
         Topic topic = topicRepository.findById(topicId)
@@ -137,13 +198,19 @@ public class TopicServiceImpl implements TopicService {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + topicId));
         
+        // Kiểm tra quyền chỉnh sửa
+        String userRole = getCurrentUserRole();
+        if (!canModifyTopic(topic, userRole)) {
+            throw new RuntimeException("Bạn không có quyền chỉnh sửa chủ đề này");
+        }
+        
         topic.setTopicName(request.getTopicName());
         topic.setIsFree(request.getIsFree() != null ? request.getIsFree() : topic.getIsFree());
         // Content Creator update topic thì status luôn chuyển về pending để chờ duyệt lại
         topic.setStatus("pending");
         topic.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : topic.getSortOrder());
         topic.setUpdatedAt(Instant.now());
-        topic.setUpdatedBy(1L); // TODO: Get from security context
+        topic.setUpdatedBy(getCurrentUserId());
         
         Topic updatedTopic = topicRepository.save(topic);
         return convertToTopicDetailResponse(updatedTopic);
@@ -167,8 +234,14 @@ public class TopicServiceImpl implements TopicService {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + topicId));
         
+        // Kiểm tra quyền xóa
+        String userRole = getCurrentUserRole();
+        if (!canModifyTopic(topic, userRole)) {
+            throw new RuntimeException("Bạn không có quyền xóa chủ đề này");
+        }
+        
         topic.setDeletedAt(Instant.now());
-        topic.setDeletedBy(1L); // TODO: Get from security context
+        topic.setDeletedBy(getCurrentUserId());
         
         topicRepository.save(topic);
     }
