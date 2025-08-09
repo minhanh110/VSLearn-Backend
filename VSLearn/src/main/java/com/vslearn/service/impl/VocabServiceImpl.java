@@ -22,6 +22,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -54,6 +56,44 @@ public class VocabServiceImpl implements VocabService {
         this.vocabAreaRepository = vocabAreaRepository;
         this.storage = storage;
         this.bucketName = bucketName;
+    }
+
+    // Helper method to get current user ID from security context
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
+            // Extract user ID from JWT claims or user details
+            // This is a simplified version - you might need to adjust based on your JWT structure
+            return 1L; // TODO: Extract actual user ID from JWT claims
+        }
+        return null;
+    }
+
+    // Helper method to check if user can modify vocab
+    private boolean canModifyVocab(Vocab vocab, String userRole) {
+        if (userRole == null) return false;
+        
+        // General manager and content approver can modify all vocabs
+        if ("ROLE_GENERAL_MANAGER".equals(userRole) || "ROLE_CONTENT_APPROVER".equals(userRole)) {
+            return true;
+        }
+        
+        // Content creator can only modify their own vocabs
+        if ("ROLE_CONTENT_CREATOR".equals(userRole)) {
+            Long currentUserId = getCurrentUserId();
+            return currentUserId != null && currentUserId.equals(vocab.getCreatedBy());
+        }
+        
+        return false;
+    }
+
+    // Helper method to get current user role
+    private String getCurrentUserRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getAuthorities() != null) {
+            return authentication.getAuthorities().iterator().next().getAuthority();
+        }
+        return null;
     }
 
     @Override
@@ -273,6 +313,15 @@ public class VocabServiceImpl implements VocabService {
         if (existingVocab.isEmpty()) {
             throw new RuntimeException("Không tìm thấy từ vựng với ID: " + vocabId);
         }
+        
+        Vocab vocab = existingVocab.get();
+        
+        // Kiểm tra quyền chỉnh sửa
+        String userRole = getCurrentUserRole();
+        if (!canModifyVocab(vocab, userRole)) {
+            throw new RuntimeException("Bạn không có quyền chỉnh sửa từ vựng này");
+        }
+        
         SubTopic subTopic = null;
         if (request.getSubTopicId() != null) {
             Optional<SubTopic> subTopicOpt = subTopicRepository.findById(request.getSubTopicId());
@@ -281,11 +330,11 @@ public class VocabServiceImpl implements VocabService {
             }
             subTopic = subTopicOpt.get();
         }
-        Vocab vocab = existingVocab.get();
+        
         vocab.setVocab(request.getVocab());
         vocab.setSubTopic(subTopic);
         vocab.setUpdatedAt(Instant.now());
-        vocab.setUpdatedBy(1L); // TODO: Get from current user
+        vocab.setUpdatedBy(getCurrentUserId());
         vocab.setStatus("pending");
         Vocab savedVocab = vocabRepository.save(vocab);
         return convertToVocabDetailResponse(savedVocab);
@@ -299,8 +348,15 @@ public class VocabServiceImpl implements VocabService {
         }
         
         Vocab vocabToDisable = vocab.get();
+        
+        // Kiểm tra quyền xóa
+        String userRole = getCurrentUserRole();
+        if (!canModifyVocab(vocabToDisable, userRole)) {
+            throw new RuntimeException("Bạn không có quyền xóa từ vựng này");
+        }
+        
         vocabToDisable.setDeletedAt(Instant.now());
-        vocabToDisable.setDeletedBy(1L); // TODO: Get from current user
+        vocabToDisable.setDeletedBy(getCurrentUserId());
         
         vocabRepository.save(vocabToDisable);
     }
