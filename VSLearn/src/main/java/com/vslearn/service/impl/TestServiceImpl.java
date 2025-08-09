@@ -29,7 +29,6 @@ import com.google.auth.oauth2.GoogleCredentials;
 @Service
 public class TestServiceImpl implements TestService {
 
-    private final TestQuestionRepository testQuestionRepository;
     private final WordRepository wordRepository;
     private final TopicRepository topicRepository;
     private final SubTopicRepository subTopicRepository;
@@ -44,7 +43,6 @@ public class TestServiceImpl implements TestService {
 
 
     public TestServiceImpl(
-            TestQuestionRepository testQuestionRepository,
             WordRepository wordRepository,
             TopicRepository topicRepository,
             SubTopicRepository subTopicRepository,
@@ -60,7 +58,6 @@ public class TestServiceImpl implements TestService {
         System.out.println("Credentials path: " + credentialsPath);
         System.out.println("Bucket name: " + bucketName);
         
-        this.testQuestionRepository = testQuestionRepository;
         this.wordRepository = wordRepository;
         this.topicRepository = topicRepository;
         this.subTopicRepository = subTopicRepository;
@@ -181,66 +178,49 @@ public class TestServiceImpl implements TestService {
         System.out.println("=== generateTestLogic started for topicId: " + topicId + " ===");
         List<TestQuestionResponseDTO> testQuestions = new ArrayList<>();
         
-        // Get existing test questions for this topic
-        List<TestQuestion> existingQuestions = testQuestionRepository.findByTopicId(topicId);
-        System.out.println("Found " + existingQuestions.size() + " existing test questions");
+        // Generate questions from topic vocab only
+        List<Vocab> topicVocabs = wordRepository.findRandomVocabByTopicId(topicId, 20);
+        System.out.println("Found " + topicVocabs.size() + " vocab for topic " + topicId);
         
-        // If we have enough existing questions, use them
-        if (existingQuestions.size() >= 20) {
-            System.out.println("Using existing questions");
-            // Randomly select 20 questions
-            Collections.shuffle(existingQuestions);
-            existingQuestions = existingQuestions.subList(0, 20);
-            
-            for (TestQuestion question : existingQuestions) {
-                testQuestions.add(convertToDTO(question));
-            }
-        } else {
-            System.out.println("Generating questions from topic vocab");
-            // Generate questions from topic vocab only
-            List<Vocab> topicVocabs = wordRepository.findRandomVocabByTopicId(topicId, 20);
-            System.out.println("Found " + topicVocabs.size() + " vocab for topic " + topicId);
-            
-            // If we don't have enough vocab in this topic, we'll work with what we have
-            if (topicVocabs.isEmpty()) {
-                System.out.println("No vocab found for topic " + topicId + ", returning empty test");
-                return testQuestions;
-            }
-            
-            // Generate questions based on available vocab
-            int availableVocabs = topicVocabs.size();
-            int totalQuestions = Math.min(20, availableVocabs * 3); // Max 3 questions per vocab
-            
-            // Calculate questions per type based on available vocab
-            int questionsPerType = Math.min(7, availableVocabs);
-            int essayQuestions = Math.min(6, availableVocabs - questionsPerType);
-            
-            System.out.println("Generating " + totalQuestions + " questions: " + 
-                             questionsPerType + " multiple choice, " + 
-                             questionsPerType + " true/false, " + 
-                             essayQuestions + " essay");
-            
-            // Multiple choice questions
-            for (int i = 0; i < questionsPerType && i < topicVocabs.size(); i++) {
-                Vocab vocab = topicVocabs.get(i);
-                testQuestions.add(generateMultipleChoiceQuestion(vocab, topicVocabs, i));
-            }
-            
-            // True/False questions
-            for (int i = 0; i < questionsPerType && (i + questionsPerType) < topicVocabs.size(); i++) {
-                Vocab vocab = topicVocabs.get(i + questionsPerType);
-                testQuestions.add(generateTrueFalseQuestion(vocab, topicVocabs, i));
-            }
-            
-            // Essay questions
-            for (int i = 0; i < essayQuestions && (i + 2 * questionsPerType) < topicVocabs.size(); i++) {
-                Vocab vocab = topicVocabs.get(i + 2 * questionsPerType);
-                testQuestions.add(generateEssayQuestion(vocab, i));
-            }
-            
-            // Shuffle the questions
-            Collections.shuffle(testQuestions);
+        // If we don't have enough vocab in this topic, we'll work with what we have
+        if (topicVocabs.isEmpty()) {
+            System.out.println("No vocab found for topic " + topicId + ", returning empty test");
+            return testQuestions;
         }
+        
+        // Generate questions based on available vocab
+        int availableVocabs = topicVocabs.size();
+        int totalQuestions = Math.min(20, availableVocabs * 3); // Max 3 questions per vocab
+        
+        // Calculate questions per type based on available vocab
+        int questionsPerType = Math.min(7, availableVocabs);
+        int essayQuestions = Math.min(6, availableVocabs - questionsPerType);
+        
+        System.out.println("Generating " + totalQuestions + " questions: " + 
+                         questionsPerType + " multiple choice, " + 
+                         questionsPerType + " true/false, " + 
+                         essayQuestions + " essay");
+        
+        // Multiple choice questions
+        for (int i = 0; i < questionsPerType && i < topicVocabs.size(); i++) {
+            Vocab vocab = topicVocabs.get(i);
+            testQuestions.add(generateMultipleChoiceQuestion(vocab, topicVocabs, i));
+        }
+        
+        // True/False questions
+        for (int i = 0; i < questionsPerType && (i + questionsPerType) < topicVocabs.size(); i++) {
+            Vocab vocab = topicVocabs.get(i + questionsPerType);
+            testQuestions.add(generateTrueFalseQuestion(vocab, topicVocabs, i));
+        }
+        
+        // Essay questions
+        for (int i = 0; i < essayQuestions && (i + 2 * questionsPerType) < topicVocabs.size(); i++) {
+            Vocab vocab = topicVocabs.get(i + 2 * questionsPerType);
+            testQuestions.add(generateEssayQuestion(vocab, i));
+        }
+        
+        // Shuffle the questions
+        Collections.shuffle(testQuestions);
         
         System.out.println("Generated " + testQuestions.size() + " test questions");
         return testQuestions;
@@ -369,31 +349,7 @@ public class TestServiceImpl implements TestService {
         );
     }
 
-    private TestQuestionResponseDTO convertToDTO(TestQuestion question) {
-        TestQuestionResponseDTO dto = new TestQuestionResponseDTO();
-        dto.setId(question.getId());
-        dto.setType(question.getQuestionType());
-        dto.setQuestion(question.getQuestionContent());
-        dto.setCorrectAnswer(question.getQuestionAnswer().getVocab());
-        
-        // Set default values for missing fields
-        dto.setVideoUrl("/videos/sign-language-demo.mp4");
-        dto.setImageUrl("/placeholder.svg?height=300&width=300");
-        
-        // Generate options for multiple choice
-        if ("multiple-choice".equals(question.getQuestionType())) {
-            List<String> options = Arrays.asList(
-                question.getQuestionAnswer().getVocab(),
-                "Option 2",
-                "Option 3",
-                "Option 4"
-            );
-            Collections.shuffle(options);
-            dto.setOptions(options);
-        }
-        
-        return dto;
-    }
+
 
     private TestQuestionResponseDTO generateMultipleChoiceQuestion(Vocab vocab, List<Vocab> topicVocabs, int index) {
         TestQuestionResponseDTO dto = new TestQuestionResponseDTO();
