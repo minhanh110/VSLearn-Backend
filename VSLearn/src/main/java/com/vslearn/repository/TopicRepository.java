@@ -32,4 +32,9 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
 
     Page<Topic> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
     Page<Topic> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
+
+    // New: ordered queries
+    List<Topic> findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status);
+    Page<Topic> findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status, Pageable pageable);
+    List<Topic> findByDeletedAtIsNullOrderBySortOrderAsc();
 } 

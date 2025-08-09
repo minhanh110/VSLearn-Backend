@@ -8,6 +8,7 @@ import com.vslearn.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,6 +47,7 @@ public class TopicController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createTopic(@RequestBody TopicCreateRequest request) {
         try {
@@ -56,6 +58,7 @@ public class TopicController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
     @PutMapping("/{topicId}")
     public ResponseEntity<Map<String, Object>> updateTopic(@PathVariable Long topicId, @RequestBody TopicUpdateRequest request) {
         try {
@@ -66,6 +69,7 @@ public class TopicController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
     @DeleteMapping("/{topicId}")
     public ResponseEntity<Map<String, Object>> disableTopic(@PathVariable Long topicId) {
         try {
@@ -81,6 +85,7 @@ public class TopicController {
         return ResponseEntity.ok(topicService.getAllTopics());
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
     @PutMapping("/{topicId}/status")
     public ResponseEntity<Map<String, Object>> updateTopicStatus(@PathVariable Long topicId, @RequestBody Map<String, String> request) {
         String status = request.get("status");
@@ -96,6 +101,22 @@ public class TopicController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PutMapping("/reorder")
+    public ResponseEntity<Map<String, Object>> reorderTopics(@RequestBody Map<String, List<Map<String, Object>>> request) {
+        List<Map<String, Object>> items = request.get("items");
+        if (items == null || items.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Danh sách trống"));
+        }
+        try {
+            topicService.reorderTopics(items);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật thứ tự thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_GENERAL_MANAGER')")
     @GetMapping("/status-options")
     public ResponseEntity<List<Map<String, Object>>> getStatusOptions() {
         List<Map<String, Object>> statusOptions = List.of(

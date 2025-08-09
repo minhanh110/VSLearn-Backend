@@ -59,6 +59,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/test/**").permitAll()
                 .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/payment/**").permitAll() // Allow OPTIONS for payment endpoints
+                .requestMatchers(HttpMethod.OPTIONS, "/api/v1/revenue/**").permitAll() // Allow OPTIONS for revenue endpoints
 
                 // Authen endpoints (ai cũng gọi được)
                 .requestMatchers("/users/signin").permitAll()
@@ -104,19 +105,18 @@ public class SystemConfig implements WebMvcConfigurer {
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
-                .loginPage("/users/signin")
                 .defaultSuccessUrl("http://localhost:3000/oauth2/callback", true)
                 .failureUrl("http://localhost:3000/login?error=oauth2_failed"))
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
-        // Tạm thời disable JWT authentication cho development
-        // http.oauth2ResourceServer(oauth2 -> {
-        //     oauth2.jwt(jwtConfigurer -> {
-        //         jwtConfigurer.decoder(jwtDecoder());
-        //         jwtConfigurer.jwtAuthenticationConverter(jwtAuthenticationConverter());
-        //     });
-        // });
+        // Enable JWT authentication
+        http.oauth2ResourceServer(oauth2 -> {
+            oauth2.jwt(jwtConfigurer -> {
+                jwtConfigurer.decoder(jwtDecoder());
+                jwtConfigurer.jwtAuthenticationConverter(jwtAuthenticationConverter());
+            });
+        });
         return http.build();
     }
 
@@ -150,7 +150,8 @@ public class SystemConfig implements WebMvcConfigurer {
                 .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .allowCredentials(true);
+                .allowCredentials(true)
+                .exposedHeaders("Set-Cookie");
     }
 
     @Bean
@@ -160,6 +161,7 @@ public class SystemConfig implements WebMvcConfigurer {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList("Set-Cookie"));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

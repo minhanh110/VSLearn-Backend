@@ -51,7 +51,8 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     public ResponseEntity<?> getLearningPath(String authHeader) {
         try {
-            List<Topic> allTopics = topicRepository.findAll();
+            // Only show active topics ordered by sortOrder on homepage
+            List<Topic> allTopics = topicRepository.findByStatusAndDeletedAtIsNullOrderBySortOrderAsc("active");
             if (allTopics.isEmpty()) {
                 return ResponseEntity.ok(ResponseData.builder()
                         .status(200)
