@@ -24,6 +24,7 @@ public class JwtUtil {
                 .claim("id", id)
                 .claim("scope", role)
                 .build();
+        
         Payload jwtPayload = new Payload(jwtClaimsSet.toJSONObject());
         JWSObject jwsObject = new JWSObject(jwtHeader, jwtPayload);
         try {
