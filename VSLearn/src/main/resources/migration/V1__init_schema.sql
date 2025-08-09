@@ -119,23 +119,6 @@ ALTER TABLE vocab
     ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending' AFTER vocab;
 
 
-CREATE TABLE test_question (
-                               id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                               topic_id INT UNSIGNED NOT NULL,
-                               question_content VARCHAR(255) NULL,
-                               question_answer INT UNSIGNED NOT NULL,
-                               question_type VARCHAR(255) NOT NULL COMMENT 'MC/TF/Fill',
-                               created_at DATETIME NOT NULL,
-                               created_by INT UNSIGNED NOT NULL,
-                               updated_at DATETIME,
-                               updated_by INT UNSIGNED,
-                               deleted_at DATETIME,
-                               deleted_by INT UNSIGNED,
-                               FOREIGN KEY (topic_id) REFERENCES topic(id) ON DELETE CASCADE,
-                               FOREIGN KEY (question_answer) REFERENCES vocab(id) ON DELETE CASCADE
-);
-
-
 CREATE TABLE topic_point (
                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                              topic_id INT UNSIGNED NOT NULL,
@@ -175,36 +158,7 @@ ALTER TABLE transactions
 
 
 
-CREATE TABLE option_answers (
-                                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                                test_question_id INT UNSIGNED NOT NULL,
-    -- users_id INT UNSIGNED NOT NULL,
-    -- answer_vocab_id INT UNSIGNED NOT NULL,
-                                type_content VARCHAR(255),
-                                is_correct TINYINT(1) NOT NULL,
-    -- users_answers_point DOUBLE NOT NULL,
-                                created_at DATETIME NOT NULL,
-                                created_by INT UNSIGNED NOT NULL,
-                                updated_at DATETIME,
-                                updated_by INT UNSIGNED,
-                                deleted_at DATETIME,
-                                deleted_by INT UNSIGNED,
-                                FOREIGN KEY (test_question_id) REFERENCES test_question(id) ON DELETE CASCADE
-);
 
-CREATE TABLE user_answers (
-                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                              users_id INT UNSIGNED NOT NULL,
-                              option_answers_id INT UNSIGNED NOT NULL,
-                              created_at DATETIME NOT NULL,
-                              created_by INT UNSIGNED NOT NULL,
-                              updated_at DATETIME,
-                              updated_by INT UNSIGNED,
-                              deleted_at DATETIME,
-                              deleted_by INT UNSIGNED,
-                              FOREIGN KEY (users_id) REFERENCES users(id) ON DELETE CASCADE,
-                              FOREIGN KEY (option_answers_id) REFERENCES option_answers(id) ON DELETE CASCADE
-);
 
 
 
@@ -266,24 +220,27 @@ CREATE TABLE word (
                       deleted_by INT UNSIGNED
 );
 
-CREATE TABLE notify (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    content TEXT NOT NULL,
-    from_user_id INT UNSIGNED NOT NULL,
-    to_user_id INT UNSIGNED NOT NULL,
-    is_send BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at DATETIME NOT NULL,
-    created_by INT UNSIGNED NOT NULL,
-    updated_at DATETIME,
-    updated_by INT UNSIGNED,
-    deleted_at DATETIME,
-    deleted_by INT UNSIGNED,
-    FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
+CREATE TABLE notification (
+                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                              content TEXT NOT NULL,
+                              from_user_id INT UNSIGNED NOT NULL,
+                              to_user_id INT UNSIGNED NOT NULL,
+                              is_send BOOLEAN NOT NULL DEFAULT FALSE,
+                              created_at DATETIME NOT NULL,
+                              created_by INT UNSIGNED NOT NULL,
+                              updated_at DATETIME,
+                              updated_by INT UNSIGNED,
+                              deleted_at DATETIME,
+                              deleted_by INT UNSIGNED,
+                              FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                              FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+ALTER TABLE notify DROP FOREIGN KEY notify_ibfk_3;
+
+ALTER TABLE notify DROP FOREIGN KEY notify_ibfk_4;
+
+ALTER TABLE notify DROP FOREIGN KEY notify_ibfk_5;
 
 -- các topic và subtopic
 INSERT INTO topic (topic_name, is_free, status, created_at, created_by)
@@ -1497,7 +1454,7 @@ SET SQL_SAFE_UPDATES = 1;
 --   ('bờ rào', NULL, NULL, NOW(), 1),
 --   ('bổ ngữ', NULL, NULL, NOW(), 1),
 --   ('bổ dưỡng', NULL, NULL, NOW(), 1);
---   
+--
 -- INSERT INTO vocab_area (vocab_id, area_id, vocab_area_video, created_at, created_by)
 -- SELECT * FROM (
 --   SELECT v.id, a.area_id,
@@ -1532,3 +1489,18 @@ SET SQL_SAFE_UPDATES = 1;
 --   17,  -- id user
 --   NOW()
 -- );
+
+
+ALTER TABLE user_answers DROP FOREIGN KEY user_answers_ibfk_1;
+ALTER TABLE user_answers DROP FOREIGN KEY user_answers_ibfk_2;
+ALTER TABLE option_answers DROP FOREIGN KEY option_answers_ibfk_1;
+ALTER TABLE test_question DROP FOREIGN KEY test_question_ibfk_1;
+ALTER TABLE test_question DROP FOREIGN KEY test_question_ibfk_2;
+
+-- 2. Drop the unused tables
+DROP TABLE IF EXISTS user_answers;
+DROP TABLE IF EXISTS option_answers;
+DROP TABLE IF EXISTS test_question;
+
+-- 3. Rename notify table to notification
+RENAME TABLE notify TO notification;
