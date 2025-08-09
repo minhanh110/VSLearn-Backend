@@ -3,6 +3,7 @@ package com.vslearn.controller;
 import com.vslearn.dto.request.NotificationCreateRequest;
 import com.vslearn.dto.response.NotificationResponse;
 import com.vslearn.service.NotificationService;
+import com.vslearn.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,10 +21,99 @@ import java.util.Map;
 public class NotificationController {
     
     private final NotificationService notificationService;
+    private final JwtUtil jwtUtil;
     
     @Autowired
-    public NotificationController(NotificationService notificationService) {
+    public NotificationController(NotificationService notificationService, JwtUtil jwtUtil) {
         this.notificationService = notificationService;
+        this.jwtUtil = jwtUtil;
+    }
+
+    // Lấy thông báo của user hiện tại
+    @GetMapping("/my-notifications")
+    public ResponseEntity<Map<String, Object>> getMyNotifications(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Không thể xác định user"
+                ));
+            }
+            
+            Pageable pageable = PageRequest.of(page, size);
+            Page<NotificationResponse> response = notificationService.getNotificationsByToUserId(Long.parseLong(userId), pageable);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", response.getContent()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
+    }
+
+    // Đếm thông báo chưa đọc của user hiện tại
+    @GetMapping("/my-notifications/count-unsent")
+    public ResponseEntity<Map<String, Object>> countMyUnsentNotifications(
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Không thể xác định user"
+                ));
+            }
+            
+            Long count = notificationService.countUnsentNotificationsByToUserId(Long.parseLong(userId));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", Map.of("count", count)
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
+    }
+
+    // Đánh dấu tất cả thông báo của user hiện tại đã đọc
+    @PutMapping("/my-notifications/mark-all-sent")
+    public ResponseEntity<Map<String, Object>> markAllMyNotificationsAsSent(
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Không thể xác định user"
+                ));
+            }
+            
+            notificationService.markAllAsSent(Long.parseLong(userId));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đánh dấu tất cả thông báo đã đọc thành công"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
     }
     
     // Tạo thông báo mới
