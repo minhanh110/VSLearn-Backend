@@ -65,13 +65,14 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByUserName(userLoginDTO.getUsername())
                 .orElseThrow(() -> new AuthenticationFailException("Tài khoản hoặc mật khẩu không đúng", userLoginDTO));
         if (!passwordEncoder.matches(userLoginDTO.getPassword(), user.getUserPassword())) {
-            throw new AuthenticationFailException("Tài khoản hoặc mật khẩu không đúng", userLoginDTO);
+            throw new AuthenticationFailException("Tài khoản hoặc mật khẩu không chính xác", userLoginDTO);
         }
         // Nếu user chưa có role, gán mặc định là LEARNER
         if (user.getUserRole() == null || user.getUserRole().isEmpty()) {
             user.setUserRole(UserRoles.LEARNER);
             userRepository.save(user);
         }
+        
         return ResponseEntity.ok(ResponseData.builder()
                 .status(HttpStatus.OK.value())
                 .message("Đăng nhập thành công")
@@ -408,6 +409,28 @@ public class UserServiceImpl implements UserService {
                         .data(null)
                         .build());
             }
+            
+            // Kiểm tra role của user trước
+            String userRole = user.getUserRole();
+            log.info("User role: {}", userRole);
+            
+            // Nếu user có role CONTENT_CREATOR, CONTENT_APPROVER, hoặc GENERAL_MANAGER, coi như premium
+            if (userRole != null && (
+                userRole.equals("ROLE_CONTENT_CREATOR") || 
+                userRole.equals("ROLE_CONTENT_APPROVER") || 
+                userRole.equals("ROLE_GENERAL_MANAGER"))) {
+                return ResponseEntity.ok(ResponseData.builder()
+                        .status(200)
+                        .message("Premium user based on role")
+                        .data(java.util.Map.of(
+                            "hasSubscription", true,
+                            "userType", "premium",
+                            "maxTopics", -1, // Unlimited
+                            "role", userRole
+                        ))
+                        .build());
+            }
+            
             // Kiểm tra subscription - lấy tất cả transactions (cả PENDING và PAID)
             java.util.List<com.vslearn.entities.Transaction> userTransactions = transactionRepository.findByCreatedBy_Id(user.getId());
             log.info("Found {} transactions for user ID: {}", userTransactions.size(), user.getId());
