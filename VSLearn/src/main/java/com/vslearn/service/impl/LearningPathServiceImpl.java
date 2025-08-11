@@ -131,12 +131,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .allMatch(st -> userInfo.completedSubtopicIds.contains(st.getId()));
                 testLesson.setAccessible(isTopicAccessible && isTestAccessible);
                 
-                // Check if there is a pending update child for this topic (draft or pending)
-                boolean hasPendingUpdate = !topicRepository.findByParent_IdAndDeletedAtIsNull(topic.getId()).isEmpty();
-                // If needed later we can add a field to DTO; for now, we could encode via description suffix
-                if ("request_update".equalsIgnoreCase(topic.getStatus()) || hasPendingUpdate) {
-                    dto.setDescription(dto.getDescription() + " (Đang cập nhật)");
-                }
+
                 
                 lessons.add(testLesson);
                 dto.setLessons(lessons);

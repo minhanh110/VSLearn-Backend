@@ -382,7 +382,7 @@ public class VocabServiceImpl implements VocabService {
 
     @Override
     public List<Map<String, Object>> getTopics() {
-        List<Topic> topics = topicRepository.findByStatusAndDeletedAtIsNull("active");
+        List<Topic> topics = topicRepository.findByParentIsNullAndStatusAndDeletedAtIsNull("active");
         return topics.stream()
                 .map(topic -> {
                     Map<String, Object> map = new java.util.HashMap<>();
