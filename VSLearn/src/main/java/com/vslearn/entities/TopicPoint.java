@@ -14,7 +14,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic_point", indexes = {
+@Table(name = "topic_points", indexes = {
         @Index(name = "topic_id", columnList = "topic_id"),
         @Index(name = "created_by", columnList = "created_by")
 })

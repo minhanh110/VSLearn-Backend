@@ -16,7 +16,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "word")
+@Table(name = "words")
 public class Word {
     @Id
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")

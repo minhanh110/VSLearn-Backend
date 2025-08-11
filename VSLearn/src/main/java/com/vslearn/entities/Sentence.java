@@ -15,7 +15,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "sentence", indexes = {
+@Table(name = "sentences", indexes = {
         @Index(name = "sentence_topic_id", columnList = "sentence_topic_id")
 })
 public class Sentence {
@@ -59,4 +59,7 @@ public class Sentence {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Sentence parent;
 }

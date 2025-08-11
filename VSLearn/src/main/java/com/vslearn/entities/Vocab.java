@@ -16,7 +16,7 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "vocab", indexes = {
+@Table(name = "vocabs", indexes = {
         @Index(name = "sub_topic_id", columnList = "sub_topic_id")
 })
 public class Vocab {

@@ -96,4 +96,12 @@ public class User {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    // Add convenience methods
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+    
+    public String getEmail() {
+        return userEmail;
+    }
 }
