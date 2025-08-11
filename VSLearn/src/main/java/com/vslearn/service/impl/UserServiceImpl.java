@@ -34,6 +34,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.Random;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @Service
 @Component
@@ -244,6 +248,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         ProfileDTO profileDTO = ProfileDTO.builder()
+                .id(user.getId())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
@@ -536,4 +541,46 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Override
+    public List<Map<String, Object>> getContentCreators() {
+        List<User> contentCreators = userRepository.findByUserRoleAndDeletedAtIsNull("ROLE_CONTENT_CREATOR");
+        return contentCreators.stream()
+                .map(user -> {
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("id", user.getId());
+                    userMap.put("name", user.getFullName());
+                    userMap.put("email", user.getEmail());
+                    return userMap;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Map<String, Object>> getContentApprovers() {
+        List<User> contentApprovers = userRepository.findByUserRoleAndDeletedAtIsNull("ROLE_CONTENT_APPROVER");
+        return contentApprovers.stream()
+                .map(user -> {
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("id", user.getId());
+                    userMap.put("name", user.getFullName());
+                    userMap.put("email", user.getEmail());
+                    return userMap;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Map<String, Object>> getAllUsersDebug() {
+        List<User> allUsers = userRepository.findByDeletedAtIsNull();
+        return allUsers.stream()
+                .map(user -> {
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("id", user.getId());
+                    userMap.put("name", user.getFullName());
+                    userMap.put("email", user.getEmail());
+                    userMap.put("role", user.getUserRole());
+                    return userMap;
+                })
+                .collect(Collectors.toList());
+    }
 }
