@@ -4,6 +4,7 @@ import com.vslearn.dto.request.TopicCreateRequest;
 import com.vslearn.dto.request.TopicUpdateRequest;
 import com.vslearn.dto.request.SubTopicRequest;
 import com.vslearn.dto.request.NotificationCreateRequest;
+import com.vslearn.dto.response.ReviewHistoryEntry;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import com.vslearn.dto.response.SubTopicDetailResponse;
@@ -27,6 +28,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -155,15 +159,16 @@ public class TopicServiceImpl implements TopicService {
             }
         } else if (status != null && !status.trim().isEmpty()) {
             // If requesting a particular status, prefer ordering by sortOrder for active lists
+            // Exclude child topics (curriculum change requests) from normal topic lists
             if ("active".equalsIgnoreCase(status)) {
-                topicPage = topicRepository.findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(status, pageable);
+                topicPage = topicRepository.findByParentIsNullAndStatusAndDeletedAtIsNullOrderBySortOrderAsc(status, pageable);
             } else {
-                topicPage = topicRepository.findByStatusAndDeletedAtIsNull(status, pageable);
+                topicPage = topicRepository.findByParentIsNullAndStatusAndDeletedAtIsNull(status, pageable);
             }
         } else if (search != null && !search.trim().isEmpty()) {
-            topicPage = topicRepository.findByTopicNameContainingIgnoreCaseAndDeletedAtIsNull(search, pageable);
+            topicPage = topicRepository.findByParentIsNullAndTopicNameContainingIgnoreCaseAndDeletedAtIsNull(search, pageable);
         } else {
-            topicPage = topicRepository.findByDeletedAtIsNull(pageable);
+            topicPage = topicRepository.findByParentIsNullAndDeletedAtIsNull(pageable);
         }
         List<TopicDetailResponse> topicList = topicPage.getContent().stream()
                 .map(this::convertToTopicDetailResponse)
@@ -263,7 +268,7 @@ public class TopicServiceImpl implements TopicService {
         
         // Thông báo cho Content Approver về topic mới cần duyệt
         Long currentUserId = getCurrentUserId();
-        String content = String.format("Chủ đề mới \"%s\" cần được duyệt. Mở: /admin/approval", savedTopic.getTopicName());
+        String content = String.format("Chủ đề mới \"%s\" cần được duyệt. Xem chi tiết [topic:%d]", savedTopic.getTopicName(), savedTopic.getId());
         notifyContentApprovers(content, currentUserId);
         
         return convertToTopicDetailResponse(savedTopic);
@@ -292,7 +297,7 @@ public class TopicServiceImpl implements TopicService {
         Topic updatedTopic = topicRepository.save(topic);
         
         // Thông báo cho Content Approver về topic đã được chỉnh sửa và cần duyệt lại
-        String content = String.format("Chủ đề \"%s\" đã được chỉnh sửa và cần duyệt lại. Mở: /admin/approval", updatedTopic.getTopicName());
+        String content = String.format("Chủ đề \"%s\" đã được chỉnh sửa và cần duyệt lại. Xem chi tiết [topic:%d]", updatedTopic.getTopicName(), updatedTopic.getId());
         notifyContentApprovers(content, currentUserId);
         
         return convertToTopicDetailResponse(updatedTopic);
@@ -300,8 +305,12 @@ public class TopicServiceImpl implements TopicService {
     
     @Override
     public TopicDetailResponse updateTopicStatus(Long topicId, String newStatus) {
+        System.out.println("🔍 updateTopicStatus called - topicId: " + topicId + ", newStatus: " + newStatus);
+        
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + topicId));
+        
+        System.out.println("🔍 Found topic - current status: " + topic.getStatus() + ", name: " + topic.getTopicName());
         
         topic.setStatus(newStatus);
         topic.setUpdatedAt(Instant.now());
@@ -310,12 +319,14 @@ public class TopicServiceImpl implements TopicService {
         
         Topic updatedTopic = topicRepository.save(topic);
         
+        System.out.println("🔍 Topic saved - new status: " + updatedTopic.getStatus());
+        
         // Thông báo cho Content Creator về kết quả duyệt/từ chối
         String content;
         if ("active".equals(newStatus)) {
-            content = String.format("Chủ đề \"%s\" đã được phê duyệt và đang hoạt động. Mở: /topic-details?id=%d", updatedTopic.getTopicName(), updatedTopic.getId());
+            content = String.format("Chủ đề \"%s\" đã được phê duyệt và đang hoạt động. Xem chi tiết [topic:%d]", updatedTopic.getTopicName(), updatedTopic.getId());
         } else if ("rejected".equals(newStatus)) {
-            content = String.format("Chủ đề \"%s\" đã bị từ chối. Mở: /topic-edit?id=%d", updatedTopic.getTopicName(), updatedTopic.getId());
+            content = String.format("Chủ đề \"%s\" đã bị từ chối. Chỉnh sửa lại [topic:%d]", updatedTopic.getTopicName(), updatedTopic.getId());
         } else {
             // Không gửi thông báo cho các trạng thái khác
             return convertToTopicDetailResponse(updatedTopic);
@@ -438,13 +449,17 @@ public class TopicServiceImpl implements TopicService {
         Topic child = getOrCreateChildDraft(parent);
         // Notify creator or assignee
         Long toUserId = (assigneeUserId != null) ? assigneeUserId : parent.getCreatedBy();
-        String content = String.format("Chủ đề #%d cần chỉnh sửa. Mở: /topic-edit?id=%d%s",
-                parent.getId(), parent.getId(), (message != null && !message.isBlank() ? ("\nGhi chú: " + message) : ""));
+        String content = String.format("Chủ đề \"%s\" cần chỉnh sửa. Chỉnh sửa lại [topic:%d]%s",
+                parent.getTopicName(), parent.getId(), (message != null && !message.isBlank() ? ("\nGhi chú: " + message) : ""));
         notificationService.createNotification(NotificationCreateRequest.builder()
                 .content(content)
                 .fromUserId(currentUserId != null ? currentUserId : 1L)
                 .toUserId(toUserId)
                 .build());
+        
+        // Also notify content approvers about the request update
+        String approverContent = String.format("Có yêu cầu chỉnh sửa cho chủ đề \"%s\". Xem chi tiết [topic:%d]", parent.getTopicName(), parent.getId());
+        notifyContentApprovers(approverContent, currentUserId);
         return convertToTopicDetailResponse(child);
     }
 
@@ -492,13 +507,17 @@ public class TopicServiceImpl implements TopicService {
         Long currentUserId = getCurrentUserId();
         child.setUpdatedBy(currentUserId != null ? currentUserId : 1L);
         Topic saved = topicRepository.save(child);
-        // Notify approvers (simplest: notify creator themself or GM; here notify creator for demo)
-        String content = String.format("Đã gửi cập nhật cho chủ đề #%d. Mở: /content-approver/topics", parent.getId());
+        // Notify creator about submission
+        String content = String.format("Đã gửi cập nhật cho chủ đề \"%s\". Xem chi tiết [topic:%d]", parent.getTopicName(), parent.getId());
         notificationService.createNotification(NotificationCreateRequest.builder()
                 .content(content)
                 .fromUserId(currentUserId != null ? currentUserId : 1L)
                 .toUserId(parent.getCreatedBy())
                 .build());
+        
+        // Also notify content approvers about the submitted update
+        String approverContent = String.format("Có cập nhật chủ đề \"%s\" cần duyệt. Xem chi tiết [topic:%d]", parent.getTopicName(), parent.getId());
+        notifyContentApprovers(approverContent, currentUserId);
         return convertToTopicDetailResponse(saved);
     }
 
@@ -528,7 +547,7 @@ public class TopicServiceImpl implements TopicService {
         child.setDeletedBy(currentUserId != null ? currentUserId : 1L);
         topicRepository.save(child);
         // Notify creator approved
-        String content = String.format("Cập nhật chủ đề #%d đã được phê duyệt. Mở: /topic-details?id=%d", parent.getId(), parent.getId());
+        String content = String.format("Cập nhật chủ đề \"%s\" đã được phê duyệt. Xem chi tiết [topic:%d]", parent.getTopicName(), parent.getId());
         notificationService.createNotification(NotificationCreateRequest.builder()
                 .content(content)
                 .fromUserId(currentUserId != null ? currentUserId : 1L)
@@ -558,7 +577,7 @@ public class TopicServiceImpl implements TopicService {
         parent.setUpdatedBy(currentUserId != null ? currentUserId : 1L);
         Topic savedParent = topicRepository.save(parent);
         // Notify creator rejected
-        String content = String.format("Cập nhật chủ đề #%d bị từ chối. Mở: /topic-edit?id=%d", parent.getId(), parent.getId());
+        String content = String.format("Cập nhật chủ đề \"%s\" bị từ chối. Chỉnh sửa lại [topic:%d]", parent.getTopicName(), parent.getId());
         notificationService.createNotification(NotificationCreateRequest.builder()
                 .content(content)
                 .fromUserId(currentUserId != null ? currentUserId : 1L)
@@ -625,7 +644,7 @@ public class TopicServiceImpl implements TopicService {
         
         // Notify content approvers about the curriculum change request
         Long currentUserId = getCurrentUserId();
-        String content = String.format("Có yêu cầu thay đổi lộ trình học mới. Mở: /content-approver/curriculum-approval?id=%d", savedChildTopic.getId());
+        String content = String.format("Có yêu cầu thay đổi lộ trình học mới. Xem chi tiết [curriculum:%d]", savedChildTopic.getId());
         notifyContentApprovers(content, currentUserId);
         
         return convertToTopicDetailResponse(savedChildTopic);
@@ -633,9 +652,9 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     public List<TopicDetailResponse> getCurriculumRequests() {
-        // Get all topics with pending status (including child topics)
-        List<Topic> pendingTopics = topicRepository.findByStatusAndDeletedAtIsNull("pending");
-        return pendingTopics.stream()
+        // Get only child topics (curriculum change requests) with pending status
+        List<Topic> pendingChildTopics = topicRepository.findByParentIsNotNullAndStatusAndDeletedAtIsNull("pending");
+        return pendingChildTopics.stream()
                 .map(this::convertToTopicDetailResponse)
                 .collect(Collectors.toList());
     }
@@ -689,5 +708,60 @@ public class TopicServiceImpl implements TopicService {
                 .build());
         
         return convertToTopicDetailResponse(savedChildTopic);
+    }
+
+    @Override
+    public List<ReviewHistoryEntry> getTopicReviewHistory(Long topicId) {
+        Topic topic = topicRepository.findById(topicId).orElse(null);
+        if (topic == null) {
+            return new ArrayList<>();
+        }
+        
+        List<ReviewHistoryEntry> history = new ArrayList<>();
+        
+        // 1. Tạo topic
+        User creator = userRepository.findById(topic.getCreatedBy()).orElse(null);
+        String creatorName = creator != null ? 
+            (creator.getFirstName() != null ? creator.getFirstName() : "") + 
+            (creator.getLastName() != null ? " " + creator.getLastName() : "") : 
+            "Người dùng";
+        if (creatorName.trim().isEmpty()) {
+            creatorName = "Người dùng";
+        }
+        
+        history.add(ReviewHistoryEntry.builder()
+            .id(1L)
+            .action("created")
+            .date(topic.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDateTime())
+            .actor(creatorName)
+            .build());
+        
+        // 2. Cập nhật/duyệt topic
+        if (topic.getUpdatedAt() != null && topic.getUpdatedBy() != null) {
+            User updater = userRepository.findById(topic.getUpdatedBy()).orElse(null);
+            String updaterName = updater != null ? 
+                (updater.getFirstName() != null ? updater.getFirstName() : "") + 
+                (updater.getLastName() != null ? " " + updater.getLastName() : "") : 
+                "Người kiểm duyệt";
+            if (updaterName.trim().isEmpty()) {
+                updaterName = "Người kiểm duyệt";
+            }
+            
+            String action = "updated";
+            if ("active".equalsIgnoreCase(topic.getStatus())) {
+                action = "approved";
+            } else if ("rejected".equalsIgnoreCase(topic.getStatus())) {
+                action = "rejected";
+            }
+            
+            history.add(ReviewHistoryEntry.builder()
+                .id(2L)
+                .action(action)
+                .date(topic.getUpdatedAt().atZone(ZoneId.systemDefault()).toLocalDateTime())
+                .actor(updaterName)
+                .build());
+        }
+        
+        return history;
     }
 } 

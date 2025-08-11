@@ -2,6 +2,7 @@ package com.vslearn.service;
 
 import com.vslearn.dto.request.TopicCreateRequest;
 import com.vslearn.dto.request.TopicUpdateRequest;
+import com.vslearn.dto.response.ReviewHistoryEntry;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +37,7 @@ public interface TopicService {
     List<TopicDetailResponse> getCurriculumRequests();
     TopicDetailResponse approveCurriculumRequest(Long childTopicId);
     TopicDetailResponse rejectCurriculumRequest(Long childTopicId, String reason);
+
+    // New: review history
+    List<ReviewHistoryEntry> getTopicReviewHistory(Long topicId);
 } 
