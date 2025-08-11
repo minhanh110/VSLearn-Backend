@@ -12,6 +12,7 @@ import java.util.List;
 public interface SubTopicRepository extends JpaRepository<SubTopic, Long> {
     List<SubTopic> findBySubTopicName(@Size(max = 255) @NotNull String subTopicName);
     List<SubTopic> findByTopic_Id(Long topicId);
-//    List<SubTopic> findByNameContainingIgnoreCase(String name);
-//    boolean existsByName(String name);
+    
+    // New: find children by parent id
+    List<SubTopic> findByParent_Id(Long parentId);
 } 

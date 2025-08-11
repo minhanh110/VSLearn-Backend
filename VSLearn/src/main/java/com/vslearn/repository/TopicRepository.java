@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -37,4 +38,13 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     List<Topic> findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status);
     Page<Topic> findByStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status, Pageable pageable);
     List<Topic> findByDeletedAtIsNullOrderBySortOrderAsc();
+
+    // New: homepage parents with status in list
+    List<Topic> findByParentIsNullAndStatusInAndDeletedAtIsNullOrderBySortOrderAsc(Collection<String> statuses);
+
+    // New: find children by parent id
+    List<Topic> findByParent_IdAndDeletedAtIsNull(Long parentId);
+    
+    // New: find child topics with pending status
+    List<Topic> findByParentIsNotNullAndStatusAndDeletedAtIsNull(String status);
 } 
