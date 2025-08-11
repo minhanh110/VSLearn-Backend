@@ -55,13 +55,15 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/vocab/category/**").permitAll()
                 .requestMatchers("/api/v1/vocab/difficulty/**").permitAll()
                 .requestMatchers("/api/v1/vocab/search").permitAll()
-                .requestMatchers("/api/ai/**").permitAll()
+                .requestMatchers("/api/v1/vocab/video/**").permitAll()
+                .requestMatchers("/api/v1/vocab/debug/**").permitAll()
+                .requestMatchers("/api/v1/ai/**").permitAll()
                 .requestMatchers("/api/test/**").permitAll()
                 .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/payment/**").permitAll() // Allow OPTIONS for payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/revenue/**").permitAll() // Allow OPTIONS for revenue endpoints
 
-                // Authen endpoints (ai cũng gọi được)
+                // Auth endpoints (allow both /users and /api/v1/users)
                 .requestMatchers("/users/signin").permitAll()
                 .requestMatchers("/users/signup").permitAll()
                 .requestMatchers("/users/signup/request-otp").permitAll()
@@ -71,16 +73,24 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/users/oauth2/**").permitAll() // Allow OAuth2 endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/users/subscription-status").permitAll() // Allow OPTIONS for subscription status
 
-                // General User (cần đăng nhập)
+                .requestMatchers("/api/v1/users/signin").permitAll()
+                .requestMatchers("/api/v1/users/signup").permitAll()
+                .requestMatchers("/api/v1/users/signup/request-otp").permitAll()
+                .requestMatchers("/api/v1/users/signup/verify-otp").permitAll()
+                .requestMatchers("/api/v1/users/forgot-password").permitAll()
+                .requestMatchers("/api/v1/users/reset-password").permitAll()
+                .requestMatchers("/api/v1/users/oauth2/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/api/v1/users/subscription-status").permitAll()
+
+                // Learning path - guest access
+                .requestMatchers("/api/v1/learning-path/**").permitAll()
+                .requestMatchers("/api/v1/progress/**").permitAll()
+                .requestMatchers("/api/v1/feedback/**").permitAll()
+
+                // General User (needs auth)
                 .requestMatchers("/users/logout").hasAnyAuthority(UserRoles.GENERAL_USER, UserRoles.LEARNER, UserRoles.CONTENT_CREATOR, UserRoles.CONTENT_APPROVER, UserRoles.GENERAL_MANAGER)
                 .requestMatchers("/users/profile/**").hasAnyAuthority(UserRoles.GENERAL_USER, UserRoles.LEARNER, UserRoles.CONTENT_CREATOR, UserRoles.CONTENT_APPROVER, UserRoles.GENERAL_MANAGER)
                 .requestMatchers("/users/change-password").hasAnyAuthority(UserRoles.GENERAL_USER, UserRoles.LEARNER, UserRoles.CONTENT_CREATOR, UserRoles.CONTENT_APPROVER, UserRoles.GENERAL_MANAGER)
-
-                // Learning path - cho phép guest user truy cập
-                .requestMatchers("/api/v1/learning-path/**").permitAll()
-                .requestMatchers("/api/v1/progress/**").permitAll()
-                .requestMatchers("/api/test/**").permitAll()
-                .requestMatchers("/api/v1/feedback/**").permitAll()
 
                 // Content Creator
                 .requestMatchers("/api/v1/vocab/create").hasAuthority(UserRoles.CONTENT_CREATOR)
@@ -110,7 +120,7 @@ public class SystemConfig implements WebMvcConfigurer {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
-        // Enable JWT authentication
+        // Enable JWT authentication only for authenticated endpoints
         http.oauth2ResourceServer(oauth2 -> {
             oauth2.jwt(jwtConfigurer -> {
                 jwtConfigurer.decoder(jwtDecoder());
