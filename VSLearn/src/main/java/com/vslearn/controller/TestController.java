@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/test")
@@ -21,6 +22,11 @@ public class TestController {
     @Autowired
     public TestController(TestService testService) {
         this.testService = testService;
+    }
+
+    @GetMapping("/hello")
+    public ResponseEntity<Map<String, String>> hello() {
+        return ResponseEntity.ok(Map.of("message", "Hello from TestController!"));
     }
 
     @GetMapping("/generate")

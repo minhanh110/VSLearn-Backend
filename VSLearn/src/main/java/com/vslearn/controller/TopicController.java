@@ -2,8 +2,10 @@ package com.vslearn.controller;
 
 import com.vslearn.dto.request.TopicCreateRequest;
 import com.vslearn.dto.request.TopicUpdateRequest;
+import com.vslearn.dto.request.RequestUpdateRequest;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
+import com.vslearn.dto.response.ResponseData;
 import com.vslearn.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -126,5 +128,108 @@ public class TopicController {
             Map.of("value", "inactive", "label", "Không hoạt động", "description", "Chủ đề đã bị vô hiệu hóa")
         );
         return ResponseEntity.ok(statusOptions);
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/request-update")
+    public ResponseEntity<Map<String, Object>> requestUpdate(@PathVariable Long topicId, @RequestBody(required = false) RequestUpdateRequest body) {
+        try {
+            TopicDetailResponse response = topicService.requestUpdate(topicId,
+                    body != null ? body.getAssigneeUserId() : null,
+                    body != null ? body.getMessage() : null);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Yêu cầu chỉnh sửa đã được tạo", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/save-draft")
+    public ResponseEntity<Map<String, Object>> saveDraft(@PathVariable Long topicId, @RequestBody TopicUpdateRequest request) {
+        try {
+            TopicDetailResponse response = topicService.saveDraft(topicId, request);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Lưu nháp bản cập nhật thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/submit-update")
+    public ResponseEntity<Map<String, Object>> submitUpdate(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.submitUpdate(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Gửi duyệt cập nhật thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/approve-update")
+    public ResponseEntity<Map<String, Object>> approveUpdate(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.approveUpdate(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Phê duyệt cập nhật thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/reject-update")
+    public ResponseEntity<Map<String, Object>> rejectUpdate(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.rejectUpdate(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Từ chối cập nhật, chuyển về nháp", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/create-draft")
+    public ResponseEntity<Map<String, Object>> createDraftTopic(@RequestBody TopicCreateRequest request) {
+        try {
+            TopicDetailResponse response = topicService.createDraftTopic(request);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Tạo nháp chủ đề thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // New: Curriculum change workflow endpoints
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @GetMapping("/curriculum-requests")
+    public ResponseEntity<Map<String, Object>> getCurriculumRequests() {
+        try {
+            List<TopicDetailResponse> requests = topicService.getCurriculumRequests();
+            return ResponseEntity.ok(Map.of("success", true, "data", requests));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/curriculum-requests/{childTopicId}/approve")
+    public ResponseEntity<Map<String, Object>> approveCurriculumRequest(@PathVariable Long childTopicId) {
+        try {
+            TopicDetailResponse response = topicService.approveCurriculumRequest(childTopicId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Phê duyệt thay đổi lộ trình học thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/curriculum-requests/{childTopicId}/reject")
+    public ResponseEntity<Map<String, Object>> rejectCurriculumRequest(@PathVariable Long childTopicId, @RequestBody Map<String, String> request) {
+        try {
+            String reason = request.get("reason");
+            TopicDetailResponse response = topicService.rejectCurriculumRequest(childTopicId, reason);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Từ chối thay đổi lộ trình học thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
     }
 } 
