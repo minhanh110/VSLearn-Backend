@@ -3,6 +3,7 @@ package com.vslearn.controller;
 import com.vslearn.dto.request.TopicCreateRequest;
 import com.vslearn.dto.request.TopicUpdateRequest;
 import com.vslearn.dto.request.RequestUpdateRequest;
+import com.vslearn.dto.response.ReviewHistoryEntry;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import com.vslearn.dto.response.ResponseData;
@@ -90,15 +91,21 @@ public class TopicController {
     @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
     @PutMapping("/{topicId}/status")
     public ResponseEntity<Map<String, Object>> updateTopicStatus(@PathVariable Long topicId, @RequestBody Map<String, String> request) {
+        System.out.println("🔍 Controller updateTopicStatus - topicId: " + topicId + ", request: " + request);
+        
         String status = request.get("status");
         if (status == null || status.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Trạng thái không được để trống"));
         }
         
+        System.out.println("🔍 Controller - status to update: " + status);
+        
         try {
             TopicDetailResponse response = topicService.updateTopicStatus(topicId, status);
+            System.out.println("🔍 Controller - response status: " + response.getStatus());
             return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật trạng thái thành công", "data", response));
         } catch (Exception e) {
+            System.out.println("🔍 Controller - error: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
@@ -230,6 +237,17 @@ public class TopicController {
             return ResponseEntity.ok(Map.of("success", true, "message", "Từ chối thay đổi lộ trình học thành công", "data", response));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // New: Review history endpoint
+    @GetMapping("/{topicId}/review-history")
+    public ResponseEntity<List<ReviewHistoryEntry>> getTopicReviewHistory(@PathVariable Long topicId) {
+        try {
+            List<ReviewHistoryEntry> history = topicService.getTopicReviewHistory(topicId);
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 } 
