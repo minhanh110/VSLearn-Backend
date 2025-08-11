@@ -51,8 +51,9 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     public ResponseEntity<?> getLearningPath(String authHeader) {
         try {
-            // Only show active topics ordered by sortOrder on homepage
-            List<Topic> allTopics = topicRepository.findByStatusAndDeletedAtIsNullOrderBySortOrderAsc("active");
+            // Show active and request_update topics ordered by sortOrder on homepage; only parent records
+            List<String> homepageStatuses = java.util.Arrays.asList("active", "request_update");
+            List<Topic> allTopics = topicRepository.findByParentIsNullAndStatusInAndDeletedAtIsNullOrderBySortOrderAsc(homepageStatuses);
             if (allTopics.isEmpty()) {
                 return ResponseEntity.ok(ResponseData.builder()
                         .status(200)
@@ -130,10 +131,12 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .allMatch(st -> userInfo.completedSubtopicIds.contains(st.getId()));
                 testLesson.setAccessible(isTopicAccessible && isTestAccessible);
                 
-                // Check if test is completed (score >= 90%)
-                boolean isTestCompleted = userInfo.testResults.stream()
-                    .anyMatch(tr -> tr.topicId.equals(topic.getId()) && tr.score >= 90.0);
-                testLesson.setIsCompleted(isTestCompleted);
+                // Check if there is a pending update child for this topic (draft or pending)
+                boolean hasPendingUpdate = !topicRepository.findByParent_IdAndDeletedAtIsNull(topic.getId()).isEmpty();
+                // If needed later we can add a field to DTO; for now, we could encode via description suffix
+                if ("request_update".equalsIgnoreCase(topic.getStatus()) || hasPendingUpdate) {
+                    dto.setDescription(dto.getDescription() + " (Đang cập nhật)");
+                }
                 
                 lessons.add(testLesson);
                 dto.setLessons(lessons);
