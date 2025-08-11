@@ -111,15 +111,26 @@ public class AIServiceImpl implements AIService {
     @Override
     public boolean checkAIServiceHealth() {
         try {
+            System.out.println("🔍 Checking AI service health at: " + AI_SERVICE_URL + "/health");
+            System.out.println("🔍 Using RestTemplate: " + (restTemplate != null ? "available" : "null"));
+            
             ResponseEntity<Map> response = restTemplate.getForEntity(
                 AI_SERVICE_URL + "/health",
                 Map.class
             );
             
+            System.out.println("✅ AI service response status: " + response.getStatusCode());
             Map<String, Object> responseBody = response.getBody();
-            return "healthy".equals(responseBody.get("status"));
+            System.out.println("✅ AI service response body: " + responseBody);
+            
+            boolean isHealthy = "healthy".equals(responseBody.get("status"));
+            System.out.println("✅ AI service is healthy: " + isHealthy);
+            return isHealthy;
             
         } catch (Exception e) {
+            System.err.println("❌ AI service health check failed: " + e.getMessage());
+            System.err.println("❌ Exception type: " + e.getClass().getSimpleName());
+            e.printStackTrace();
             return false;
         }
     }

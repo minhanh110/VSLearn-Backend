@@ -16,7 +16,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "sub_topic", indexes = {
+@Table(name = "sub_topics", indexes = {
         @Index(name = "topic_id", columnList = "topic_id")
 })
 public class SubTopic {
@@ -64,4 +64,7 @@ public class SubTopic {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private SubTopic parent;
 }

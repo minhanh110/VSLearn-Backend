@@ -221,19 +221,19 @@ CREATE TABLE word (
 );
 
 CREATE TABLE notification (
-                              id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                              content TEXT NOT NULL,
-                              from_user_id INT UNSIGNED NOT NULL,
-                              to_user_id INT UNSIGNED NOT NULL,
-                              is_send BOOLEAN NOT NULL DEFAULT FALSE,
-                              created_at DATETIME NOT NULL,
-                              created_by INT UNSIGNED NOT NULL,
-                              updated_at DATETIME,
-                              updated_by INT UNSIGNED,
-                              deleted_at DATETIME,
-                              deleted_by INT UNSIGNED,
-                              FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
-                              FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    content TEXT NOT NULL,
+    from_user_id INT UNSIGNED NOT NULL,
+    to_user_id INT UNSIGNED NOT NULL,
+    is_send BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL,
+    created_by INT UNSIGNED NOT NULL,
+    updated_at DATETIME,
+    updated_by INT UNSIGNED,
+    deleted_at DATETIME,
+    deleted_by INT UNSIGNED,
+    FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 ALTER TABLE notify DROP FOREIGN KEY notify_ibfk_3;
@@ -1454,7 +1454,7 @@ SET SQL_SAFE_UPDATES = 1;
 --   ('bờ rào', NULL, NULL, NOW(), 1),
 --   ('bổ ngữ', NULL, NULL, NOW(), 1),
 --   ('bổ dưỡng', NULL, NULL, NOW(), 1);
---
+--   
 -- INSERT INTO vocab_area (vocab_id, area_id, vocab_area_video, created_at, created_by)
 -- SELECT * FROM (
 --   SELECT v.id, a.area_id,
@@ -1490,17 +1490,44 @@ SET SQL_SAFE_UPDATES = 1;
 --   NOW()
 -- );
 
-
+-- 1
 ALTER TABLE user_answers DROP FOREIGN KEY user_answers_ibfk_1;
 ALTER TABLE user_answers DROP FOREIGN KEY user_answers_ibfk_2;
 ALTER TABLE option_answers DROP FOREIGN KEY option_answers_ibfk_1;
 ALTER TABLE test_question DROP FOREIGN KEY test_question_ibfk_1;
 ALTER TABLE test_question DROP FOREIGN KEY test_question_ibfk_2;
 
--- 2. Drop the unused tables
+-- 2
 DROP TABLE IF EXISTS user_answers;
 DROP TABLE IF EXISTS option_answers;
 DROP TABLE IF EXISTS test_question;
 
--- 3. Rename notify table to notification
+-- 3. 
 RENAME TABLE notify TO notification;
+
+
+
+USE VSLearn;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+RENAME TABLE
+  topic           TO topics,
+  sub_topic       TO sub_topics,
+  pricing         TO pricings,
+  vocab           TO vocabs,
+  topic_point     TO topic_points,
+  vocab_area      TO vocab_areas,
+  sentence        TO sentences,
+  sentence_vocab  TO sentence_vocabs,
+  word            TO words,
+  notification    TO notifications;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- Vx__add_parent_id_and_statuses.sql
+ALTER TABLE topics      ADD COLUMN parent_id INT UNSIGNED NULL, ADD INDEX idx_topics_parent_id (parent_id), ADD CONSTRAINT fk_topics_parent FOREIGN KEY (parent_id) REFERENCES topics(id);
+ALTER TABLE sub_topics  ADD COLUMN parent_id INT UNSIGNED NULL, ADD INDEX idx_sub_topics_parent_id (parent_id), ADD CONSTRAINT fk_sub_topics_parent FOREIGN KEY (parent_id) REFERENCES sub_topics(id);
+ALTER TABLE sentences   ADD COLUMN parent_id INT UNSIGNED NULL, ADD INDEX idx_sentences_parent_id (parent_id), ADD CONSTRAINT fk_sentences_parent FOREIGN KEY (parent_id) REFERENCES sentences(id);
+-- status đã là VARCHAR nên không cần ALTER, chỉ cần dùng thêm giá trị 'draft', 'request_update'

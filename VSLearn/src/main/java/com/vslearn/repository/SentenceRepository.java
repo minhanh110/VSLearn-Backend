@@ -8,8 +8,9 @@ import java.util.List;
 
 @Repository
 public interface SentenceRepository extends JpaRepository<Sentence, Long> {
-//    List<QuestionType> findByNameContainingIgnoreCase(String name);
-//    boolean existsByName(String name);
     List<Sentence> findBySentenceTopicId(Long topicId);
     boolean existsBySentenceTopicId(Long topicId);
+
+    // New: find children by parent id
+    List<Sentence> findByParent_Id(Long parentId);
 } 

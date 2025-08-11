@@ -14,7 +14,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "sentence_vocab", indexes = {
+@Table(name = "sentence_vocabs", indexes = {
         @Index(name = "sentence_id", columnList = "sentence_id"),
         @Index(name = "vocab_id", columnList = "vocab_id")
 })

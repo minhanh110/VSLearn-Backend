@@ -14,7 +14,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "notification", indexes = {
+@Table(name = "notifications", indexes = {
         @Index(name = "idx_notification_to_user", columnList = "to_user_id"),
         @Index(name = "idx_notification_is_send", columnList = "is_send"),
         @Index(name = "idx_notification_created_at", columnList = "created_at")

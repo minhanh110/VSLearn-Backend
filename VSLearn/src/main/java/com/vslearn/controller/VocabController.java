@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/v1/vocab")
@@ -172,16 +173,54 @@ public class VocabController {
         }
     }
 
-    // Serve video files from Google Cloud Storage (same as flashcard)
-    @GetMapping("/video/{videoPath}")
-    public ResponseEntity<String> getVideo(@PathVariable String videoPath) {
+    // Debug endpoint to list files in bucket
+    @GetMapping("/debug/list-files")
+    public ResponseEntity<Map<String, Object>> listFilesInBucket() {
         try {
-            // Decode the URL-encoded path
-            String decodedPath = java.net.URLDecoder.decode(videoPath, "UTF-8");
+            System.out.println("🔍 Listing files in bucket: " + bucketName);
+            
+            List<String> fileNames = new ArrayList<>();
+            for (com.google.cloud.storage.Blob blob : storage.list(bucketName).iterateAll()) {
+                fileNames.add(blob.getName());
+                System.out.println("📁 Found file: " + blob.getName());
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "bucket", bucketName,
+                "fileCount", fileNames.size(),
+                "files", fileNames
+            ));
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error listing files: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    // Serve video files from Google Cloud Storage (same as flashcard)
+    @GetMapping("/video/{topic}/{subtopic}/{filename}")
+    public ResponseEntity<String> getVideo(
+            @PathVariable String topic,
+            @PathVariable String subtopic,
+            @PathVariable String filename) {
+        try {
+            // Construct the full path
+            String fullPath = topic + "/" + subtopic + "/" + filename;
+            System.out.println("🔍 Topic: " + topic);
+            System.out.println("🔍 Subtopic: " + subtopic);
+            System.out.println("🔍 Filename: " + filename);
+            System.out.println("🔍 Full path: " + fullPath);
+            System.out.println("🔍 Bucket name: " + bucketName);
             
             // Generate signed URL like flashcard does
-            com.google.cloud.storage.BlobId blobId = com.google.cloud.storage.BlobId.of(bucketName, decodedPath);
+            com.google.cloud.storage.BlobId blobId = com.google.cloud.storage.BlobId.of(bucketName, fullPath);
             com.google.cloud.storage.BlobInfo blobInfo = com.google.cloud.storage.BlobInfo.newBuilder(blobId).build();
+            
+            System.out.println("🔍 BlobId: " + blobId);
+            System.out.println("🔍 BlobInfo: " + blobInfo);
             
             java.net.URL signedUrl = storage.signUrl(blobInfo, 2, java.util.concurrent.TimeUnit.HOURS, 
                 com.google.cloud.storage.Storage.SignUrlOption.withV4Signature());
@@ -195,6 +234,7 @@ public class VocabController {
                 
         } catch (Exception e) {
             System.out.println("❌ Error serving video: " + e.getMessage());
+            System.out.println("❌ Exception type: " + e.getClass().getSimpleName());
             e.printStackTrace();
             return ResponseEntity.notFound().build();
         }

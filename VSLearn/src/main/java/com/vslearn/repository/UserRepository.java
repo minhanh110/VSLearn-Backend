@@ -63,4 +63,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 //    List<User> findByRoleIdAndIsActive(Integer roleId, Boolean isActive);
 
     Optional<User> findByActiveCode(String activeCode);
+    
+    // Add method to find users by role and not deleted
+    List<User> findByUserRoleAndDeletedAtIsNull(String userRole);
+    
+    // Add method to find all users not deleted
+    List<User> findByDeletedAtIsNull();
 }

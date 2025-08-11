@@ -5,6 +5,7 @@ import com.vslearn.dto.VideoProcessingDTO;
 import com.vslearn.service.AIService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,8 +13,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ai")
-@CrossOrigin(origins = "*")
+@RequestMapping("/api/v1/ai")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
+@PreAuthorize("permitAll()")
 public class AIServiceController {
     
     @Autowired
@@ -28,11 +30,12 @@ public class AIServiceController {
             @RequestParam("expectedWord") String expectedWord,
             @RequestParam("category") String category,
             @RequestParam("difficulty") String difficulty) {
-        
         try {
-            // Validate file
-            if (videoFile.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Video file is required"));
+            // File size validation (50MB)
+            if (videoFile.getSize() > 50 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "File quá lớn. Tối đa 50MB"
+                ));
             }
             
             // Validate file type
@@ -100,5 +103,54 @@ public class AIServiceController {
         response.put("timestamp", System.currentTimeMillis());
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Test endpoint để kiểm tra kết nối trực tiếp đến AI service
+     */
+    @GetMapping("/test-ai-connection")
+    public ResponseEntity<?> testAIConnection() {
+        try {
+            boolean isHealthy = aiService.checkAIServiceHealth();
+            Map<String, Object> response = new HashMap<>();
+            response.put("ai_service_available", isHealthy);
+            response.put("message", isHealthy ? "AI service is healthy" : "AI service is not available");
+            response.put("timestamp", System.currentTimeMillis());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("ai_service_available", false);
+            response.put("error", e.getMessage());
+            response.put("timestamp", System.currentTimeMillis());
+            
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Simple test endpoint không gọi AI service
+     */
+    @GetMapping("/simple-test")
+    public ResponseEntity<?> simpleTest() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "AI Controller is working");
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("ai_service_url", "http://localhost:8001");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Exception handler for 413 Payload Too Large
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<?> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "File quá lớn. Tối đa 50MB");
+        response.put("timestamp", System.currentTimeMillis());
+        
+        return ResponseEntity.badRequest().body(response);
     }
 } 

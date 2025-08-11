@@ -19,7 +19,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "topic")
+@Table(name = "topics")
 public class Topic {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -63,4 +63,7 @@ public class Topic {
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
 
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "parent_id")
+    private Topic parent;
 }

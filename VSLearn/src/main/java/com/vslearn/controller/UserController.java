@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping({"/users", "/api/v1/users"})
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
@@ -79,5 +82,81 @@ public class UserController {
     @PostMapping("/refresh-token")
     public ResponseEntity<ResponseData<?>> refreshToken(@RequestHeader("Authorization") String authHeader) {
         throw new UnsupportedOperationException("Not implemented. Nếu cần, hãy chuyển logic sang service.");
+    }
+
+    @GetMapping("/content-creators")
+    public ResponseEntity<ResponseData<?>> getContentCreators() {
+        try {
+            List<Map<String, Object>> contentCreators = userService.getContentCreators();
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(200)
+                    .message("Lấy danh sách content creators thành công")
+                    .data(contentCreators)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(500)
+                    .message("Lỗi khi lấy danh sách content creators: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
+    @GetMapping("/content-approvers")
+    public ResponseEntity<ResponseData<?>> getContentApprovers() {
+        try {
+            List<Map<String, Object>> contentApprovers = userService.getContentApprovers();
+            System.out.println("API: Found " + contentApprovers.size() + " content approvers: " + contentApprovers);
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(200)
+                    .message("Lấy danh sách content approvers thành công")
+                    .data(contentApprovers)
+                    .build());
+        } catch (Exception e) {
+            System.err.println("API: Error getting content approvers: " + e.getMessage());
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(500)
+                    .message("Lỗi khi lấy danh sách content approvers: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
+    @GetMapping("/debug/all-users")
+    public ResponseEntity<ResponseData<?>> getAllUsersDebug() {
+        try {
+            // This is a debug endpoint to check all users and their roles
+            List<Map<String, Object>> allUsers = userService.getAllUsersDebug();
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(200)
+                    .message("Debug: Lấy danh sách tất cả users thành công")
+                    .data(allUsers)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(500)
+                    .message("Debug: Lỗi khi lấy danh sách users: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
+    @GetMapping("/debug/content-approvers")
+    public ResponseEntity<ResponseData<?>> getContentApproversDebug() {
+        try {
+            // This is a debug endpoint to check content approvers
+            List<Map<String, Object>> contentApprovers = userService.getContentApprovers();
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(200)
+                    .message("Debug: Lấy danh sách content approvers thành công")
+                    .data(contentApprovers)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResponseData.builder()
+                    .status(500)
+                    .message("Debug: Lỗi khi lấy danh sách content approvers: " + e.getMessage())
+                    .data(null)
+                    .build());
+        }
     }
 }

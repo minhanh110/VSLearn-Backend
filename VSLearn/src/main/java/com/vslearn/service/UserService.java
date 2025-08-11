@@ -10,6 +10,9 @@ import com.vslearn.dto.request.VerifySignupOtpDTO;
 import com.vslearn.dto.response.ResponseData;
 import org.springframework.http.ResponseEntity;
 
+import java.util.List;
+import java.util.Map;
+
 public interface UserService {
     ResponseEntity<ResponseData<?>> signin(UserLoginDTO userLoginDTO);
 
@@ -32,4 +35,12 @@ public interface UserService {
     ResponseEntity<ResponseData<?>> handleOAuth2Login(String email, String name);
     
     ResponseEntity<ResponseData<?>> getSubscriptionStatus(String authHeader);
+
+    List<Map<String, Object>> getContentCreators();
+
+    // Added to match implementation in UserServiceImpl
+    List<Map<String, Object>> getContentApprovers();
+
+    // Added to match implementation in UserServiceImpl
+    List<Map<String, Object>> getAllUsersDebug();
 }

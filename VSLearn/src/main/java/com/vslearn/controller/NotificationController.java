@@ -4,12 +4,15 @@ import com.vslearn.dto.request.NotificationCreateRequest;
 import com.vslearn.dto.response.NotificationResponse;
 import com.vslearn.service.NotificationService;
 import com.vslearn.utils.JwtUtil;
+import com.vslearn.entities.User;
+import com.vslearn.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,11 +25,13 @@ public class NotificationController {
     
     private final NotificationService notificationService;
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
     
     @Autowired
-    public NotificationController(NotificationService notificationService, JwtUtil jwtUtil) {
+    public NotificationController(NotificationService notificationService, JwtUtil jwtUtil, UserRepository userRepository) {
         this.notificationService = notificationService;
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     // Lấy thông báo của user hiện tại
@@ -36,23 +41,31 @@ public class NotificationController {
             @RequestParam(defaultValue = "10") int size,
             @RequestHeader("Authorization") String authHeader) {
         try {
-            String token = authHeader.replace("Bearer ", "");
-            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            // Get user ID from email (Spring Security stores email in authentication name)
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            System.out.println("Notification API - Email from authentication: " + email);
             
-            if (userId == null) {
+            // Get user ID from database by email
+            User user = userRepository.findByUserEmail(email).orElse(null);
+            if (user == null) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "Không thể xác định user"
+                    "message", "Không tìm thấy user với email: " + email
                 ));
             }
             
+            Long userId = user.getId();
+            System.out.println("Notification API - User ID from database: " + userId);
+            
             Pageable pageable = PageRequest.of(page, size);
-            Page<NotificationResponse> response = notificationService.getNotificationsByToUserId(Long.parseLong(userId), pageable);
+            Page<NotificationResponse> response = notificationService.getNotificationsByToUserId(userId, pageable);
+            System.out.println("Notification API - Found " + response.getContent().size() + " notifications for user " + userId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", response.getContent()
             ));
         } catch (Exception e) {
+            System.err.println("Notification API - Error: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", "Có lỗi xảy ra: " + e.getMessage()
@@ -65,22 +78,30 @@ public class NotificationController {
     public ResponseEntity<Map<String, Object>> countMyUnsentNotifications(
             @RequestHeader("Authorization") String authHeader) {
         try {
-            String token = authHeader.replace("Bearer ", "");
-            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            // Get user ID from email (Spring Security stores email in authentication name)
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            System.out.println("Count API - Email from authentication: " + email);
             
-            if (userId == null) {
+            // Get user ID from database by email
+            User user = userRepository.findByUserEmail(email).orElse(null);
+            if (user == null) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "Không thể xác định user"
+                    "message", "Không tìm thấy user với email: " + email
                 ));
             }
             
-            Long count = notificationService.countUnsentNotificationsByToUserId(Long.parseLong(userId));
+            Long userId = user.getId();
+            System.out.println("Count API - User ID from database: " + userId);
+            
+            Long count = notificationService.countUnsentNotificationsByToUserId(userId);
+            System.out.println("Count API - Found " + count + " unsent notifications for user " + userId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", Map.of("count", count)
             ));
         } catch (Exception e) {
+            System.err.println("Count API - Error: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", "Có lỗi xảy ra: " + e.getMessage()
@@ -93,22 +114,29 @@ public class NotificationController {
     public ResponseEntity<Map<String, Object>> markAllMyNotificationsAsSent(
             @RequestHeader("Authorization") String authHeader) {
         try {
-            String token = authHeader.replace("Bearer ", "");
-            String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
+            // Get user ID from email (Spring Security stores email in authentication name)
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            System.out.println("Mark all sent API - Email from authentication: " + email);
             
-            if (userId == null) {
+            // Get user ID from database by email
+            User user = userRepository.findByUserEmail(email).orElse(null);
+            if (user == null) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "Không thể xác định user"
+                    "message", "Không tìm thấy user với email: " + email
                 ));
             }
             
-            notificationService.markAllAsSent(Long.parseLong(userId));
+            Long userId = user.getId();
+            System.out.println("Mark all sent API - User ID from database: " + userId);
+            
+            notificationService.markAllAsSent(userId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Đánh dấu tất cả thông báo đã đọc thành công"
             ));
         } catch (Exception e) {
+            System.err.println("Mark all sent API - Error: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", "Có lỗi xảy ra: " + e.getMessage()
