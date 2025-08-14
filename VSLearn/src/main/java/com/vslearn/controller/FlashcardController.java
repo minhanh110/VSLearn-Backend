@@ -44,7 +44,16 @@ public class FlashcardController {
 
     @GetMapping("/subtopic/{subtopicId}/info")
     public ResponseEntity<SubtopicInfoDTO> getSubtopicInfo(@PathVariable String subtopicId) {
-        return ResponseEntity.ok(flashcardService.getSubtopicInfo(subtopicId));
+        System.out.println("=== Controller: getSubtopicInfo called with subtopicId: " + subtopicId + " ===");
+        try {
+            SubtopicInfoDTO result = flashcardService.getSubtopicInfo(subtopicId);
+            System.out.println("=== Controller: Result: " + result + " ===");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("=== Controller: Error: " + e.getMessage() + " ===");
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @GetMapping("/{areaId}")
@@ -59,6 +68,12 @@ public class FlashcardController {
     @GetMapping("/subtopic/{subtopicId}/timeline")
     public ResponseEntity<TimelineResponseDTO> getTimeline(@PathVariable String subtopicId) {
         TimelineResponseDTO timeline = flashcardService.generateTimeline(subtopicId);
+        return ResponseEntity.ok(timeline);
+    }
+
+    @GetMapping("/subtopic/{subtopicId}/sentence-building-timeline")
+    public ResponseEntity<TimelineResponseDTO> getSentenceBuildingTimeline(@PathVariable String subtopicId) {
+        TimelineResponseDTO timeline = flashcardService.generateSentenceBuildingTimeline(subtopicId);
         return ResponseEntity.ok(timeline);
     }
 
@@ -103,6 +118,15 @@ public class FlashcardController {
         if (questions.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        return ResponseEntity.ok(questions);
+    }
+
+    @GetMapping("/subtopic/{subtopicId}/sentence-building/practice")
+    public ResponseEntity<List<SentenceBuildingQuestionDTO>> getSentenceBuildingQuestionsByRange(
+            @PathVariable String subtopicId,
+            @RequestParam(defaultValue = "0") int start,
+            @RequestParam(defaultValue = "3") int end) {
+        List<SentenceBuildingQuestionDTO> questions = flashcardService.generateSentenceBuildingQuestions(subtopicId, start, end);
         return ResponseEntity.ok(questions);
     }
 
