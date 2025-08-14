@@ -135,6 +135,17 @@ public class LearningPathServiceImpl implements LearningPathService {
                 
                 lessons.add(testLesson);
                 dto.setLessons(lessons);
+                
+                // Tính tổng số từ vựng của topic (tổng của tất cả subtopics)
+                int totalWordCount = 0;
+                for (SubTopic sub : subTopics) {
+                    if (sub.getStatus() == null || !sub.getStatus().toLowerCase().contains("test")) {
+                        long subtopicWordCount = vocabAreaRepository.countByVocabSubTopicId(sub.getId());
+                        totalWordCount += (int) subtopicWordCount;
+                    }
+                }
+                dto.setWordCount(totalWordCount);
+                
                 result.add(dto);
             }
             return ResponseEntity.ok(ResponseData.builder()
@@ -153,17 +164,17 @@ public class LearningPathServiceImpl implements LearningPathService {
 
     private UserInfo getUserInfo(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return new UserInfo(null, 1, new ArrayList<>(), new ArrayList<>());
+            throw new RuntimeException("Invalid or missing authorization header");
         }
         try {
             String token = authHeader.replace("Bearer ", "");
             String userId = (String) jwtUtil.getClaimsFromToken(token).getClaims().get("id");
             if (userId == null) {
-                return new UserInfo(null, 1, new ArrayList<>(), new ArrayList<>());
+                throw new RuntimeException("User ID not found in JWT token");
             }
             User user = userRepository.findById(Long.parseLong(userId)).orElse(null);
             if (user == null) {
-                return new UserInfo(null, 1, new ArrayList<>(), new ArrayList<>());
+                throw new RuntimeException("User not found in database for ID: " + userId);
             }
             
             // Get user progress
@@ -184,7 +195,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             
             return new UserInfo(user.getId(), maxAllowedTopics, completedSubtopicIds, testResults);
         } catch (Exception e) {
-            return new UserInfo(null, 1, new ArrayList<>(), new ArrayList<>());
+            throw new RuntimeException("Failed to get user info: " + e.getMessage(), e);
         }
     }
 
@@ -283,7 +294,9 @@ public class LearningPathServiceImpl implements LearningPathService {
             if (userTransactions.isEmpty()) {
                 return false;
             }
+            // Chỉ lấy transaction PAID
             Transaction latestTransaction = userTransactions.stream()
+                    .filter(t -> t.getPaymentStatus() == Transaction.PaymentStatus.PAID)
                     .sorted((t1, t2) -> t2.getCreatedAt().compareTo(t1.getCreatedAt()))
                     .findFirst()
                     .orElse(null);
