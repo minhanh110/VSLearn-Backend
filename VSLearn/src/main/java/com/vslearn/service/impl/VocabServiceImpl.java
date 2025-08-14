@@ -12,11 +12,13 @@ import com.vslearn.entities.SubTopic;
 import com.vslearn.entities.Topic;
 import com.vslearn.entities.Area;
 import com.vslearn.entities.VocabArea;
+import com.vslearn.entities.User;
 import com.vslearn.repository.VocabRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.AreaRepository;
 import com.vslearn.repository.VocabAreaRepository;
+import com.vslearn.repository.UserRepository;
 import com.vslearn.service.VocabService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -43,17 +45,19 @@ public class VocabServiceImpl implements VocabService {
     private final TopicRepository topicRepository;
     private final AreaRepository areaRepository;
     private final VocabAreaRepository vocabAreaRepository;
+    private final UserRepository userRepository;
     private final com.google.cloud.storage.Storage storage;
     private final String bucketName;
 
     @Autowired
-    public VocabServiceImpl(VocabRepository vocabRepository, SubTopicRepository subTopicRepository, TopicRepository topicRepository, AreaRepository areaRepository, VocabAreaRepository vocabAreaRepository,
+    public VocabServiceImpl(VocabRepository vocabRepository, SubTopicRepository subTopicRepository, TopicRepository topicRepository, AreaRepository areaRepository, VocabAreaRepository vocabAreaRepository, UserRepository userRepository,
                           com.google.cloud.storage.Storage storage, @org.springframework.beans.factory.annotation.Value("${gcp.storage.bucket.name}") String bucketName) {
         this.vocabRepository = vocabRepository;
         this.subTopicRepository = subTopicRepository;
         this.topicRepository = topicRepository;
         this.areaRepository = areaRepository;
         this.vocabAreaRepository = vocabAreaRepository;
+        this.userRepository = userRepository;
         this.storage = storage;
         this.bucketName = bucketName;
     }
@@ -61,12 +65,26 @@ public class VocabServiceImpl implements VocabService {
     // Helper method to get current user ID from security context
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
-            // Extract user ID from JWT claims or user details
-            // This is a simplified version - you might need to adjust based on your JWT structure
-            return 1L; // TODO: Extract actual user ID from JWT claims
+        if (authentication != null) {
+            String email = authentication.getName();
+            System.out.println("Getting user ID for email: " + email);
+            
+            // Get user ID from database by email
+            try {
+                User user = userRepository.findByUserEmail(email).orElse(null);
+                if (user != null) {
+                    System.out.println("Found user in database: " + user.getId() + " for email: " + email);
+                    return user.getId();
+                } else {
+                    System.err.println("User not found in database for email: " + email);
+                    throw new RuntimeException("User not found in database for email: " + email);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to get user ID for email " + email + ": " + e.getMessage());
+                throw new RuntimeException("Failed to get user ID for email " + email, e);
+            }
         }
-        return null;
+        throw new RuntimeException("No authentication found");
     }
 
     // Helper method to check if user can modify vocab
@@ -254,11 +272,13 @@ public class VocabServiceImpl implements VocabService {
             }
         }
         
+        Long currentUserId = getCurrentUserId();
+        
         Vocab vocab = Vocab.builder()
                 .vocab(request.getVocab())
                 .subTopic(subTopic)
                 .createdAt(Instant.now())
-                .createdBy(1L) // TODO: Get from current user
+                .createdBy(currentUserId)
                 .status("pending") // Content Creator tạo vocab luôn có status pending
                 .build();
         
@@ -298,7 +318,7 @@ public class VocabServiceImpl implements VocabService {
                     .vocabAreaVideo(request.getVideoLink())
                     .vocabAreaDescription(description)
                     .createdAt(Instant.now())
-                    .createdBy(1L) // TODO: Get from current user
+                    .createdBy(currentUserId)
                     .build();
             
             vocabAreaRepository.save(vocabArea);
@@ -362,6 +382,42 @@ public class VocabServiceImpl implements VocabService {
     }
 
     @Override
+    public void requestDeleteVocab(Long vocabId, String reason) {
+        Optional<Vocab> vocab = vocabRepository.findById(vocabId);
+        if (vocab.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy từ vựng với ID: " + vocabId);
+        }
+        
+        Vocab vocabToRequestDelete = vocab.get();
+        
+        // Kiểm tra quyền yêu cầu xóa
+        String userRole = getCurrentUserRole();
+        if (!canModifyVocab(vocabToRequestDelete, userRole)) {
+            throw new RuntimeException("Bạn không có quyền yêu cầu xóa từ vựng này");
+        }
+        
+        // Chuyển trạng thái thành "pending_delete" thay vì xóa trực tiếp
+        vocabToRequestDelete.setStatus("pending_delete");
+        vocabToRequestDelete.setUpdatedAt(Instant.now());
+        vocabToRequestDelete.setUpdatedBy(getCurrentUserId());
+        
+        vocabRepository.save(vocabToRequestDelete);
+        
+        // Gửi thông báo cho content approver
+        Long currentUserId = getCurrentUserId();
+        String content = String.format("Yêu cầu xóa từ vựng \"%s\". Lý do: %s", 
+            vocabToRequestDelete.getVocab(), 
+            reason != null ? reason : "Không có lý do");
+        
+        // TODO: Implement notification service call
+        // notificationService.createNotification(NotificationCreateRequest.builder()
+        //     .content(content)
+        //     .fromUserId(currentUserId != null ? currentUserId : 1L)
+        //     .toUserId(getContentApproverId()) // Cần implement method này
+        //     .build());
+    }
+
+    @Override
     public VocabListResponse getRejectedVocabList(Pageable pageable) {
         Page<Vocab> vocabPage = vocabRepository.findByDeletedAtIsNotNull(pageable);
         
@@ -404,7 +460,7 @@ public class VocabServiceImpl implements VocabService {
         Vocab vocab = existingVocab.get();
         vocab.setStatus(status);
         vocab.setUpdatedAt(Instant.now());
-        vocab.setUpdatedBy(1L); // TODO: Get from current user
+        vocab.setUpdatedBy(getCurrentUserId());
         
         Vocab savedVocab = vocabRepository.save(vocab);
         return convertToVocabDetailResponse(savedVocab);
