@@ -28,12 +28,12 @@ public class Sentence {
     private String sentenceVideo;
 
     @Lob
-    @Column(name = "sentence_description")
-    private String sentenceDescription;
+    @Column(name = "sentence_meaning")
+    private String sentenceMeaning;
 
     @Size(max = 255)
-    @Column(name = "sentence_type")
-    private String sentenceType;
+    @Column(name = "sentence_description")
+    private String sentenceDescription;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
