@@ -38,6 +38,16 @@ public interface TopicService {
     TopicDetailResponse approveCurriculumRequest(Long childTopicId);
     TopicDetailResponse rejectCurriculumRequest(Long childTopicId, String reason);
 
+    // New: curriculum preview workflow (Option 1 - Parent-Child)
+    void createCurriculumPreview(List<Map<String, Object>> items);
+    List<TopicDetailResponse> getCurriculumPreviews();
+    void approveCurriculumPreview();
+    void rejectCurriculumPreview(String reason);
+    
+    // New: topic permission management
+    TopicDetailResponse assignTopicPermission(Long topicId, Long assigneeUserId);
+    TopicDetailResponse revokeTopicPermission(Long topicId);
+
     // New: review history
     List<ReviewHistoryEntry> getTopicReviewHistory(Long topicId);
 } 
