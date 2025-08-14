@@ -26,6 +26,7 @@ import com.vslearn.repository.UserRepository;
 import com.vslearn.repository.SentenceRepository;
 import com.vslearn.repository.SentenceVocabRepository;
 import com.vslearn.repository.WordRepository;
+
 import com.vslearn.service.FlashcardService;
 import com.vslearn.exception.customizeException.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,6 +59,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     private final SentenceVocabRepository sentenceVocabRepository;
     private final WordRepository wordRepository;
 
+
     public FlashcardServiceImpl(
             VocabAreaRepository vocabAreaRepository,
             SubTopicRepository subTopicRepository,
@@ -66,6 +68,7 @@ public class FlashcardServiceImpl implements FlashcardService {
             SentenceRepository sentenceRepository,
             SentenceVocabRepository sentenceVocabRepository,
             WordRepository wordRepository,
+
             @Value("${gcp.storage.credentials.location}") String credentialsPath,
             @Value("${gcp.storage.bucket.name}") String bucketName,
             ObjectMapper objectMapper
@@ -77,6 +80,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         this.sentenceRepository = sentenceRepository;
         this.sentenceVocabRepository = sentenceVocabRepository;
         this.wordRepository = wordRepository;
+
         this.bucketName = bucketName;
         GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(credentialsPath.replace("file:", "")));
         this.storage = StorageOptions.newBuilder().setCredentials(credentials).build().getService();
@@ -145,17 +149,157 @@ public class FlashcardServiceImpl implements FlashcardService {
             int currentGroupSize = Math.min(groupSize, remainingCards);
             System.out.println("  - Group " + (group + 1) + ": taking " + currentGroupSize + " cards (" + i + " to " + (i + currentGroupSize - 1) + ")");
             for (int j = 0; j < currentGroupSize; j++) {
-                timeline.add(new TimelineResponseDTO.TimelineStepDTO("flashcard", i, null, null));
+                timeline.add(new TimelineResponseDTO.TimelineStepDTO("flashcard", i, null, null, null));
                 i++;
             }
             System.out.println("    - Adding practice for cards " + groupStart + " to " + i);
-            timeline.add(new TimelineResponseDTO.TimelineStepDTO("practice", null, groupStart, i));
+            timeline.add(new TimelineResponseDTO.TimelineStepDTO("practice", null, groupStart, i, null));
         }
         System.out.println("📊 Backend: Final timeline size: " + timeline.size());
         System.out.println("✅ Total cards covered: " + i + "/" + totalCards);
         if (i != totalCards) {
             System.err.println("❌ ERROR: Expected " + totalCards + " cards but got " + i);
         }
+        return new TimelineResponseDTO(timeline, 0, "default-user", subtopicId);
+    }
+
+    // Thêm method để lấy sentence building questions theo range
+    @Override
+    public List<SentenceBuildingQuestionDTO> generateSentenceBuildingQuestions(String subtopicId, int start, int end) {
+        // Lấy subtopic để biết topic ID
+        Optional<SubTopic> subTopic = subTopicRepository.findById(Long.parseLong(subtopicId));
+        if (subTopic.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        Long topicId = subTopic.get().getTopic().getId();
+        List<Sentence> sentences = sentenceRepository.findBySentenceTopicId(topicId);
+        
+        // Lấy range câu hỏi
+        List<Sentence> practiceRange = sentences.subList(start, Math.min(end, sentences.size()));
+        
+        List<SentenceBuildingQuestionDTO> questions = new ArrayList<>();
+        
+        for (Sentence sentence : practiceRange) {
+            // Lấy các vocab liên quan đến sentence này
+            List<SentenceVocab> sentenceVocabs = sentenceVocabRepository.findBySentenceId(sentence.getId());
+            List<String> words = sentenceVocabs.stream()
+                    .map(sv -> sv.getVocab().getVocab())
+                    .collect(Collectors.toList());
+            
+            // Tạo câu đúng từ các từ đã học
+            String correctAnswer = String.join(" ", words);
+            
+            // Tạo danh sách từ có thể chọn (bao gồm cả từ sai)
+            List<String> allWords = new ArrayList<>(words);
+            
+            // Lấy từ vựng gây nhiễu từ bảng word
+            List<String> distractorWords = wordRepository.findRandomDistractorWords(4);
+            allWords.addAll(distractorWords);
+            
+            // Random thứ tự các từ trong danh sách lựa chọn
+            Collections.shuffle(allWords);
+            
+            // Tạo signed URL cho video
+            String objectName = sentence.getSentenceVideo();
+            URL signedUrl = generateSignedUrl(objectName);
+            String videoUrl = signedUrl != null ? signedUrl.toString() : "";
+            
+            SentenceBuildingQuestionDTO question = SentenceBuildingQuestionDTO.builder()
+                    .id(sentence.getId())
+                    .videoUrl(videoUrl)
+                    .imageUrl(videoUrl)
+                    .question("Ghép câu theo video:")
+                    .meaning(sentence.getSentenceMeaning())
+                    .description(sentence.getSentenceDescription())
+                    .words(allWords)
+                    .correctSentence(words)
+                    .correctAnswer(correctAnswer)
+                    .build();
+            
+            questions.add(question);
+        }
+        
+        return questions;
+    }
+
+    // Thêm method mới để tạo timeline cho sentence building
+    @Override
+    public TimelineResponseDTO generateSentenceBuildingTimeline(String subtopicId) {
+        // Lấy subtopic để biết topic ID
+        Optional<SubTopic> subTopic = subTopicRepository.findById(Long.parseLong(subtopicId));
+        if (subTopic.isEmpty()) {
+            return new TimelineResponseDTO(new ArrayList<>(), 0, "default-user", subtopicId);
+        }
+        
+        Long topicId = subTopic.get().getTopic().getId();
+        List<Sentence> sentences = sentenceRepository.findBySentenceTopicId(topicId);
+        int totalSentences = sentences.size();
+        
+        System.out.println("🔧 Backend: Creating sentence building timeline for " + totalSentences + " sentences");
+        
+        List<TimelineResponseDTO.TimelineStepDTO> timeline = new ArrayList<>();
+        int i = 0;
+        
+        // Xử lý đặc biệt cho trường hợp ít câu (1-2 câu)
+        if (totalSentences <= 2) {
+            System.out.println("  - Special handling for small sentence set (" + totalSentences + " sentences)");
+            
+            // Thêm tất cả sentence flashcards
+            for (int j = 0; j < totalSentences; j++) {
+                timeline.add(new TimelineResponseDTO.TimelineStepDTO("sentence-flashcard", j, null, null, 0));
+            }
+            
+            // Thêm sentence practice cho tất cả câu
+            System.out.println("    - Adding sentence practice for all " + totalSentences + " sentences");
+            System.out.println("    - Practice step: start=0, end=" + totalSentences);
+            timeline.add(new TimelineResponseDTO.TimelineStepDTO("sentence-practice", null, 0, totalSentences, 0));
+            
+            System.out.println("📊 Backend: Final sentence timeline size: " + timeline.size());
+            System.out.println("📊 Backend: Timeline details:");
+            for (int k = 0; k < timeline.size(); k++) {
+                TimelineResponseDTO.TimelineStepDTO step = timeline.get(k);
+                System.out.println("  - Step " + k + ": " + step.getType() + " (start=" + step.getStart() + ", end=" + step.getEnd() + ")");
+            }
+            return new TimelineResponseDTO(timeline, 0, "default-user", subtopicId);
+        }
+        
+        // Logic cho 3+ câu: nhóm 3-4 câu thành một practice session
+        int numGroups = 3;
+        if (totalSentences <= 9) {
+            numGroups = 3;
+        } else if (totalSentences <= 12) {
+            numGroups = 4;
+        } else {
+            numGroups = 4;
+        }
+        
+        int groupSize = (int) Math.ceil((double) totalSentences / numGroups);
+        System.out.println("  - numGroups: " + numGroups);
+        System.out.println("  - groupSize: " + groupSize);
+        
+        for (int group = 0; group < numGroups; group++) {
+            int groupStart = i;
+            int remainingSentences = totalSentences - i;
+            if (remainingSentences <= 0) break;
+            
+            int currentGroupSize = Math.min(groupSize, remainingSentences);
+            System.out.println("  - Sentence Group " + (group + 1) + ": taking " + currentGroupSize + " sentences (" + i + " to " + (i + currentGroupSize - 1) + ")");
+            
+            // Thêm sentence flashcard steps
+            for (int j = 0; j < currentGroupSize; j++) {
+                timeline.add(new TimelineResponseDTO.TimelineStepDTO("sentence-flashcard", i, null, null, group));
+                i++;
+            }
+            
+            // Thêm sentence practice step cho tất cả nhóm (kể cả 1 câu)
+            System.out.println("    - Adding sentence practice for sentences " + groupStart + " to " + i + " (" + currentGroupSize + " sentences)");
+            timeline.add(new TimelineResponseDTO.TimelineStepDTO("sentence-practice", null, groupStart, i, group));
+        }
+        
+        System.out.println("📊 Backend: Final sentence timeline size: " + timeline.size());
+        System.out.println("✅ Total sentences covered: " + i + "/" + totalSentences);
+        
         return new TimelineResponseDTO(timeline, 0, "default-user", subtopicId);
     }
 
@@ -248,14 +392,51 @@ public class FlashcardServiceImpl implements FlashcardService {
         com.vslearn.entities.SubTopic st = subTopic.get();
         
         // Đếm số flashcards trong subtopic này
-        List<VocabArea> vocabAreas = vocabAreaRepository.findByVocabSubTopicId(st.getId());
-        int totalFlashcards = vocabAreas.size();
+        System.out.println("=== Debug getSubtopicInfo ===");
+        System.out.println("Subtopic ID: " + st.getId());
+        System.out.println("Subtopic Name: " + st.getSubTopicName());
+        
+        // Thử cách đếm đơn giản hơn
+        int totalFlashcards = 0;
+        try {
+            // Cách 1: Đếm vocab trực tiếp
+            List<VocabArea> vocabAreas = vocabAreaRepository.findByVocabSubTopicId(st.getId());
+            totalFlashcards = vocabAreas.size();
+            System.out.println("Method 1 - findByVocabSubTopicId: " + totalFlashcards);
+            
+            // Cách 2: Đếm bằng count
+            long count = vocabAreaRepository.countByVocabSubTopicId(st.getId());
+            System.out.println("Method 2 - countByVocabSubTopicId: " + count);
+            
+            // Sử dụng kết quả từ method 1
+            totalFlashcards = vocabAreas.size();
+        } catch (Exception e) {
+            System.err.println("Error counting flashcards: " + e.getMessage());
+            e.printStackTrace();
+            totalFlashcards = 0;
+        }
+        System.out.println("Total flashcards from vocab_areas: " + totalFlashcards);
+        
+        // Fallback: đếm vocab trực tiếp
+        try {
+            List<VocabArea> vocabAreas = vocabAreaRepository.findByVocabSubTopicId(st.getId());
+            System.out.println("Vocab areas found: " + vocabAreas.size());
+            for (VocabArea va : vocabAreas) {
+                System.out.println("  - Vocab: " + va.getVocab().getVocab() + ", Area: " + va.getArea().getAreaName());
+            }
+        } catch (Exception e) {
+            System.err.println("Error listing vocab areas: " + e.getMessage());
+        }
+        
+        // Lấy thông tin topic một cách an toàn - sử dụng topicId từ database
+        Long topicId = st.getTopic().getId();
+        String topicName = st.getTopic().getTopicName();
         
         return new SubtopicInfoDTO(
             st.getId(),
             st.getSubTopicName(),
-            st.getTopic().getId(),
-            st.getTopic().getTopicName(),
+            topicId,
+            topicName,
             st.getStatus(),
             totalFlashcards
         );
@@ -470,6 +651,8 @@ public class FlashcardServiceImpl implements FlashcardService {
                     .videoUrl(videoUrl)
                     .imageUrl(videoUrl)
                     .question("Ghép câu theo video:")
+                    .meaning(sentence.getSentenceMeaning())
+                    .description(sentence.getSentenceDescription())
                     .words(allWords)
                     .correctSentence(words)
                     .correctAnswer(correctAnswer)
@@ -522,6 +705,8 @@ public class FlashcardServiceImpl implements FlashcardService {
                     .videoUrl(videoUrl)
                     .imageUrl(videoUrl)
                     .question("Ghép câu theo video:")
+                    .meaning(sentence.getSentenceMeaning())
+                    .description(sentence.getSentenceDescription())
                     .words(allWords)
                     .correctSentence(words)
                     .correctAnswer(correctAnswer)
