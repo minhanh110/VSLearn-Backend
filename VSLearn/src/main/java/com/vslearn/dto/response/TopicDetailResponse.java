@@ -19,6 +19,7 @@ public class TopicDetailResponse {
     private String status;
     private Long sortOrder;
     private Long subtopicCount; // Number of subtopics for this topic
+    private Long parentId; // ID of parent topic (for child topics)
     private Instant createdAt;
     private Long createdBy;
     private Instant updatedAt;

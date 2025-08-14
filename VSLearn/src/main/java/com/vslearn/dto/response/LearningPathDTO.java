@@ -11,4 +11,5 @@ public class LearningPathDTO {
     private List<LessonDTO> lessons;
     private Boolean accessible = true;
     private String lockReason;
+    private Integer wordCount; // Thêm field để lưu tổng số từ vựng của topic
 } 

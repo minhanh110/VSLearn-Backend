@@ -38,7 +38,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Transaction createTransaction(String transactionCode, Double amount, String description) {
-        return createTransaction(transactionCode, amount, description, 1L, null); // Default pricing ID = 1, no user ID
+        return createTransaction(transactionCode, amount, description, 1L, null); // Default pricing ID = 1, user ID will be extracted from authentication
     }
     
     @Override
@@ -96,11 +96,10 @@ public class TransactionServiceImpl implements TransactionService {
                 }
             }
             
-            // Final fallback: nếu vẫn không lấy được, sử dụng user mặc định
+            // Final fallback: nếu vẫn không lấy được, throw exception
             if (currentUser == null) {
-                log.warn("No current user found, using default user ID = 1");
-                currentUser = new User();
-                currentUser.setId(1L);
+                log.error("No current user found, cannot create transaction");
+                throw new RuntimeException("No current user found, cannot create transaction");
             }
             
             log.info("🔍 Creating transaction for user: {}", currentUser.getId());

@@ -45,15 +45,16 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     // New: find children by parent id
     List<Topic> findByParent_IdAndDeletedAtIsNull(Long parentId);
     
-    // New: find child topics with pending status
+    // New: curriculum preview methods
     List<Topic> findByParentIsNotNullAndStatusAndDeletedAtIsNull(String status);
+    List<Topic> findByParentIsNotNullAndStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status);
+    List<Topic> findByParent_IdAndStatusAndDeletedAtIsNull(Long parentId, String status);
+    void deleteByParentIsNotNullAndStatusAndDeletedAtIsNull(String status);
     
-    // New: find parent topics only (exclude child topics)
-    Page<Topic> findByParentIsNullAndStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status, Pageable pageable);
+    // New: parent topics methods (for existing code)
+    List<Topic> findByParentIsNullAndStatusAndDeletedAtIsNull(String status);
     Page<Topic> findByParentIsNullAndStatusAndDeletedAtIsNull(String status, Pageable pageable);
+    Page<Topic> findByParentIsNullAndStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status, Pageable pageable);
     Page<Topic> findByParentIsNullAndTopicNameContainingIgnoreCaseAndDeletedAtIsNull(String topicName, Pageable pageable);
     Page<Topic> findByParentIsNullAndDeletedAtIsNull(Pageable pageable);
-    
-    // New: find parent topics only (List version for vocab service)
-    List<Topic> findByParentIsNullAndStatusAndDeletedAtIsNull(String status);
 } 

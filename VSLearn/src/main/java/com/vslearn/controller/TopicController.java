@@ -194,6 +194,29 @@ public class TopicController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/assign-permission")
+    public ResponseEntity<Map<String, Object>> assignTopicPermission(@PathVariable Long topicId, @RequestBody Map<String, Object> request) {
+        try {
+            Long assigneeUserId = Long.valueOf(request.get("assigneeUserId").toString());
+            TopicDetailResponse response = topicService.assignTopicPermission(topicId, assigneeUserId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Ủy quyền thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{topicId}/revoke-permission")
+    public ResponseEntity<Map<String, Object>> revokeTopicPermission(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.revokeTopicPermission(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Thu hồi ủy quyền thành công", "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PostMapping("/create-draft")
     public ResponseEntity<Map<String, Object>> createDraftTopic(@RequestBody TopicCreateRequest request) {
@@ -248,6 +271,53 @@ public class TopicController {
             return ResponseEntity.ok(history);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // ==================== CURRICULUM PREVIEW WORKFLOW ENDPOINTS ====================
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/curriculum-preview")
+    public ResponseEntity<Map<String, Object>> createCurriculumPreview(@RequestBody List<Map<String, Object>> items) {
+        try {
+            topicService.createCurriculumPreview(items);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Tạo preview thay đổi lộ trình học thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @GetMapping("/curriculum-previews")
+    public ResponseEntity<Map<String, Object>> getCurriculumPreviews() {
+        try {
+            List<TopicDetailResponse> previews = topicService.getCurriculumPreviews();
+            return ResponseEntity.ok(Map.of("success", true, "data", previews));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/curriculum-preview/approve")
+    public ResponseEntity<Map<String, Object>> approveCurriculumPreview() {
+        try {
+            topicService.approveCurriculumPreview();
+            return ResponseEntity.ok(Map.of("success", true, "message", "Phê duyệt thay đổi lộ trình học thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/curriculum-preview/reject")
+    public ResponseEntity<Map<String, Object>> rejectCurriculumPreview(@RequestBody Map<String, String> request) {
+        try {
+            String reason = request.get("reason");
+            topicService.rejectCurriculumPreview(reason);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Từ chối thay đổi lộ trình học thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 } 

@@ -164,6 +164,7 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
     Page<Vocab> findByCreatedByAndDeletedAtIsNull(Long createdBy, Pageable pageable);
     Page<Vocab> findByStatusAndCreatedByAndDeletedAtIsNull(String status, Long createdBy, Pageable pageable);
     List<Vocab> findBySubTopic_Id(Long subTopicId);
+    long countBySubTopic_Id(Long subTopicId);
     
     // ========== CAMERA SIGN METHODS ==========
     
@@ -189,4 +190,7 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
     // Find by vocab containing and status
     @Query("SELECT v FROM Vocab v WHERE v.status = :status AND LOWER(v.vocab) LIKE LOWER(CONCAT('%', :vocab, '%'))")
     List<Vocab> findByVocabContainingIgnoreCaseAndStatus(String vocab, String status);
+    
+    // New: filter by deletedAt for soft delete support
+    List<Vocab> findBySubTopic_IdAndDeletedAtIsNull(Long subTopicId);
 } 

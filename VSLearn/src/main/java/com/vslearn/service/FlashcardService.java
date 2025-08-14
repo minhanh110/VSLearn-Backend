@@ -39,6 +39,10 @@ public interface FlashcardService {
     List<SentenceBuildingQuestionDTO> getSentenceBuildingQuestionsForTopic(Long topicId);
 
     Map<String, Object> getNextSubtopic(String subtopicId);
+
+    TimelineResponseDTO generateSentenceBuildingTimeline(String subtopicId);
+
+    List<SentenceBuildingQuestionDTO> generateSentenceBuildingQuestions(String subtopicId, int start, int end);
 }
     // endpoint debug
     // Object debugSubtopicFlashcards(String subtopicId);

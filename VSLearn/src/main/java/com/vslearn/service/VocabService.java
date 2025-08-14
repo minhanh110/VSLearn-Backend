@@ -16,6 +16,7 @@ public interface VocabService {
     VocabDetailResponse createVocab(VocabCreateRequest request);
     VocabDetailResponse updateVocab(Long vocabId, VocabUpdateRequest request);
     void disableVocab(Long vocabId);
+    void requestDeleteVocab(Long vocabId, String reason);
     VocabListResponse getRejectedVocabList(Pageable pageable);
     VocabDetailResponse updateVocabStatus(Long vocabId, String status);
     List<Map<String, Object>> getTopics();

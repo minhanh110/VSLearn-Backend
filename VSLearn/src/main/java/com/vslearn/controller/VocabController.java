@@ -132,6 +132,25 @@ public class VocabController {
         }
     }
 
+    // Yêu cầu xóa từ vựng (cho content creator)
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
+    @PostMapping("/{vocabId}/request-delete")
+    public ResponseEntity<Map<String, Object>> requestDeleteVocab(@PathVariable Long vocabId, @RequestBody Map<String, String> request) {
+        try {
+            String reason = request.get("reason");
+            vocabService.requestDeleteVocab(vocabId, reason);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đã gửi yêu cầu xóa từ vựng thành công"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
+    }
+
     // Lấy danh sách từ vựng bị từ chối
     @GetMapping("/rejected")
     public ResponseEntity<VocabListResponse> getRejectedVocabList(
