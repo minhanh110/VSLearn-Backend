@@ -22,9 +22,10 @@ public class TimelineResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class TimelineStepDTO {
-        private String type; // "flashcard" | "practice"
+        private String type; // "flashcard" | "practice" | "sentence-flashcard" | "sentence-practice"
         private Integer index;
         private Integer start;
         private Integer end;
+        private Integer sentenceGroup; // Nhóm câu cho sentence building
     }
 } 

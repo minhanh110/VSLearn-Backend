@@ -16,6 +16,8 @@ public class SentenceBuildingQuestionDTO {
     private String videoUrl;
     private String imageUrl;
     private String question;
+    private String meaning;  // Thêm field meaning
+    private String description;  // Thêm field description
     private List<String> words;
     private List<String> correctSentence;
     private String correctAnswer;
