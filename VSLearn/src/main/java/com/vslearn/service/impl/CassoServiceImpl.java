@@ -134,40 +134,70 @@ public class CassoServiceImpl implements CassoService {
             
             // Tính thời gian hiện tại để so sánh
             LocalDateTime now = LocalDateTime.now();
-            LocalDateTime thirtyMinutesAgo = now.minusMinutes(30);
+            LocalDateTime fiveMinutesAgo = now.minusMinutes(5); // Giảm xuống 5 phút
             
-            log.info("Looking for transactions from {} to {} (within last 30 minutes)", thirtyMinutesAgo, now);
+            log.info("Looking for transactions from {} to {} (within last 5 minutes)", fiveMinutesAgo, now);
             
             for (CassoTransactionResponse.CassoTransaction transaction : transactions) {
                 double transactionAmount = Math.abs(transaction.getAmount());
                 
+                log.info("🔍 Checking transaction: ID={}, Amount={}, Description='{}', When={}", 
+                        transaction.getId(), transaction.getAmount(), transaction.getDescription(), transaction.getWhen());
+                
                 // Kiểm tra amount trước
                 if (Math.abs(transactionAmount - expectedAmount) < 1000) { // Cho phép sai số 1000 VND
-                    log.info("Amount matches! Transaction ID={}, Amount={}, Description={}", 
+                    log.info("✅ Amount matches! Transaction ID={}, Amount={}, Description='{}'", 
                             transaction.getId(), transaction.getAmount(), transaction.getDescription());
                     
-                    // Kiểm tra thời gian (trong vòng 30 phút gần nhất)
-                    if (transaction.getWhen() != null) {
-                        LocalDateTime transactionTime = LocalDateTime.parse(transaction.getWhen(), 
-                                DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                    // Kiểm tra description có chứa transaction code không
+                    String description = transaction.getDescription() != null ? transaction.getDescription().toLowerCase() : "";
+                    String expectedTransactionCode = transactionCode.toLowerCase();
+                    
+                    log.info("🔍 Checking description: '{}' for transaction code: '{}'", description, expectedTransactionCode);
+                    
+                    // Kiểm tra description có liên quan đến giao dịch này không
+                    String accountNumber = "0356682909"; // Account number từ config
+                    
+                    log.info("🔍 Checking description: '{}' for transaction code: '{}' or account: '{}'", 
+                            description, expectedTransactionCode, accountNumber);
+                    
+                    // Kiểm tra description có chứa transaction code hoặc account number
+                    // Tạm thời nới lỏng để debug
+                    boolean descriptionMatches = description.contains(expectedTransactionCode) || 
+                                               description.contains(accountNumber) ||
+                                               description.contains("vslearn");
+                    
+                    if (descriptionMatches) {
+                        log.info("✅ Description matches! Found transaction code, account number, or VSLearn in description");
                         
-                        log.info("Transaction time: {}, 30 minutes ago: {}, Is recent: {}", 
-                                transactionTime, thirtyMinutesAgo, transactionTime.isAfter(thirtyMinutesAgo));
-                        
-                        if (transactionTime.isAfter(thirtyMinutesAgo)) {
-                            log.info("✅ Payment confirmed! Transaction ID={}, Amount={}, Time={}, Description={}", 
-                                    transaction.getId(), transaction.getAmount(), transaction.getWhen(), transaction.getDescription());
-                            return true;
+                        // Kiểm tra thời gian (trong vòng 30 phút gần nhất)
+                        if (transaction.getWhen() != null) {
+                            LocalDateTime transactionTime = LocalDateTime.parse(transaction.getWhen(), 
+                                    DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                            
+                            log.info("Transaction time: {}, 5 minutes ago: {}, Is recent: {}", 
+                                    transactionTime, fiveMinutesAgo, transactionTime.isAfter(fiveMinutesAgo));
+                            
+                            if (transactionTime.isAfter(fiveMinutesAgo)) {
+                                log.info("✅ Payment confirmed! Transaction ID={}, Amount={}, Time={}, Description={}", 
+                                        transaction.getId(), transaction.getAmount(), transaction.getWhen(), transaction.getDescription());
+                                return true;
+                            } else {
+                                log.info("❌ Transaction too old: {}", transaction.getWhen());
+                            }
                         } else {
-                            log.info("❌ Transaction too old: {}", transaction.getWhen());
+                            log.warn("Transaction has no timestamp: {}", transaction.getId());
                         }
                     } else {
-                        log.warn("Transaction has no timestamp: {}", transaction.getId());
+                        log.info("❌ Description does not match: '{}' (looking for '{}', '{}', or 'vslearn')", 
+                                description, expectedTransactionCode, accountNumber);
                     }
+                } else {
+                    log.info("❌ Amount does not match: expected={}, actual={}", expectedAmount, transactionAmount);
                 }
             }
             
-            log.info("Payment not found for amount: {} in last 30 minutes", expectedAmount);
+            log.info("Payment not found for amount: {} in last 5 minutes", expectedAmount);
             return false;
             
         } catch (Exception e) {
