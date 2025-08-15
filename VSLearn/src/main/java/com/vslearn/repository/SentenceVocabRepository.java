@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SentenceVocabRepository extends JpaRepository<SentenceVocab, Long> {
     List<SentenceVocab> findBySentenceId(Long sentenceId);
+    List<SentenceVocab> findByVocabId(Long vocabId);
+    void deleteBySentenceId(Long sentenceId);
 } 
