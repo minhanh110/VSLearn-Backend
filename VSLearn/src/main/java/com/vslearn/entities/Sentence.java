@@ -20,10 +20,11 @@ import java.time.Instant;
 })
 public class Sentence {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
-    @Size(max = 255)
+    @Lob
     @Column(name = "sentence_video")
     private String sentenceVideo;
 
@@ -31,9 +32,11 @@ public class Sentence {
     @Column(name = "sentence_meaning")
     private String sentenceMeaning;
 
-    @Size(max = 255)
+    @Lob
     @Column(name = "sentence_description")
     private String sentenceDescription;
+
+
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
