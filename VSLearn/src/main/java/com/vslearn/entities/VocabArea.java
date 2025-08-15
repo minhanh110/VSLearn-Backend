@@ -37,9 +37,9 @@ public class VocabArea {
     @JoinColumn(name = "area_id", nullable = false)
     private Area area;
 
-    @Size(max = 500)
+    @Size(max = 2000)
     @NotNull
-    @Column(name = "vocab_area_video", nullable = false, length = 500)
+    @Column(name = "vocab_area_video", nullable = false, length = 2000)
     private String vocabAreaVideo;
 
     @Lob

@@ -4,6 +4,7 @@ import com.vslearn.dto.AIResponseDTO;
 import com.vslearn.dto.VideoProcessingDTO;
 import com.vslearn.service.AIService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -12,47 +13,73 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.Map;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
 
 @Service
 public class AIServiceImpl implements AIService {
     
     private final String AI_SERVICE_URL = "http://localhost:8001";
     private final RestTemplate restTemplate;
+    private final Storage storage;
+    private final String bucketName;
     
     @Autowired
-    public AIServiceImpl(RestTemplate restTemplate) {
+    public AIServiceImpl(RestTemplate restTemplate, Storage storage, @Value("${gcp.storage.bucket.name}") String bucketName) {
         this.restTemplate = restTemplate;
+        this.storage = storage;
+        this.bucketName = bucketName;
     }
     
     @Override
     public VideoProcessingDTO processVideo(MultipartFile videoFile, String expectedWord, String category, String difficulty) {
         try {
+            // Upload video to Google Cloud Storage first
+            String fileName = System.currentTimeMillis() + "_" + videoFile.getOriginalFilename();
+            String objectName = "ai-processing-videos/" + fileName;
+            
+            // Upload to GCS
+            BlobId blobId = BlobId.of(bucketName, objectName);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .setContentType(videoFile.getContentType())
+                .setMetadata(Map.of(
+                    "originalName", videoFile.getOriginalFilename(),
+                    "uploadedAt", Instant.now().toString(),
+                    "fileSize", String.valueOf(videoFile.getSize()),
+                    "expectedWord", expectedWord,
+                    "category", category,
+                    "difficulty", difficulty
+                ))
+                .build();
+            
+            storage.create(blobInfo, videoFile.getBytes());
+            
+            // Generate signed URL for AI service
+            java.net.URL signedUrl = storage.signUrl(blobInfo, 2, java.util.concurrent.TimeUnit.HOURS, 
+                Storage.SignUrlOption.withV4Signature());
+            
             // Tạo request headers
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.setContentType(MediaType.APPLICATION_JSON);
             
-            // Tạo multipart body
-            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-            ByteArrayResource fileResource = new ByteArrayResource(videoFile.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return videoFile.getOriginalFilename();
-                }
-            };
-            body.add("video", fileResource);
-            
-            // Thêm metadata
-            body.add("expectedWord", expectedWord);
-            body.add("category", category);
-            body.add("difficulty", difficulty);
+            // Tạo request body với signed URL
+            Map<String, Object> requestBody = Map.of(
+                "videoUrl", signedUrl.toString(),
+                "expectedWord", expectedWord,
+                "category", category,
+                "difficulty", difficulty,
+                "objectName", objectName
+            );
             
             // Tạo HTTP entity
-            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
             
-            // Gọi AI service
+            // Gọi AI service với video URL thay vì file
             ResponseEntity<Map> response = restTemplate.postForEntity(
-                AI_SERVICE_URL + "/process-video",
+                AI_SERVICE_URL + "/process-video-url",
                 requestEntity,
                 Map.class
             );
@@ -70,6 +97,23 @@ public class AIServiceImpl implements AIService {
             
         } catch (Exception e) {
             throw new RuntimeException("Failed to submit video to AI service: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Xóa video từ GCS sau khi xử lý xong
+     */
+    public void deleteVideoFromGCS(String objectName) {
+        try {
+            BlobId blobId = BlobId.of(bucketName, objectName);
+            boolean deleted = storage.delete(blobId);
+            if (deleted) {
+                System.out.println("✅ Deleted video from GCS: " + objectName);
+            } else {
+                System.out.println("⚠️ Video not found in GCS: " + objectName);
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error deleting video from GCS: " + e.getMessage());
         }
     }
     

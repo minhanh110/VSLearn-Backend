@@ -28,4 +28,10 @@ public interface AIService {
      * @return true nếu AI service hoạt động bình thường
      */
     boolean checkAIServiceHealth();
+    
+    /**
+     * Xóa video từ Google Cloud Storage
+     * @param objectName Tên object trong GCS
+     */
+    void deleteVideoFromGCS(String objectName);
 } 
