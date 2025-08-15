@@ -315,7 +315,7 @@ public class VocabServiceImpl implements VocabService {
             VocabArea vocabArea = VocabArea.builder()
                     .vocab(savedVocab)
                     .area(area)
-                    .vocabAreaVideo(request.getVideoLink())
+                    .vocabAreaVideo(request.getVideoLink()) // This should be objectName, not signed URL
                     .vocabAreaDescription(description)
                     .createdAt(Instant.now())
                     .createdBy(currentUserId)
@@ -482,7 +482,7 @@ public class VocabServiceImpl implements VocabService {
     @Override
     public VideoUploadResponse uploadVideoToGCS(org.springframework.web.multipart.MultipartFile file, String fileName) throws Exception {
         // Generate unique object name
-        String objectName = "vocab-videos/" + fileName;
+        String objectName = "vocab-upload-videos/" + fileName;
         
         // Upload to GCS
         BlobId blobId = BlobId.of(bucketName, objectName);
@@ -556,6 +556,28 @@ public class VocabServiceImpl implements VocabService {
             // Generate signed URL for video like flashcard does
             String objectName = vocabArea.getVocabAreaVideo();
             if (objectName != null && !objectName.trim().isEmpty()) {
+                // Check if objectName is already a signed URL (contains query parameters)
+                if (objectName.contains("?") || objectName.startsWith("http")) {
+                    // If it's already a signed URL, extract the object name
+                    try {
+                        java.net.URL url = new java.net.URL(objectName);
+                        String path = url.getPath();
+                        // Remove bucket name from path if present
+                        if (path.startsWith("/" + bucketName + "/")) {
+                            objectName = path.substring(("/" + bucketName + "/").length());
+                        } else if (path.startsWith("/")) {
+                            objectName = path.substring(1);
+                        } else {
+                            objectName = path;
+                        }
+                        System.out.println("🔍 Extracted object name from signed URL: " + objectName);
+                    } catch (Exception e) {
+                        System.err.println("❌ Error parsing signed URL: " + e.getMessage());
+                        videoLink = objectName; // Fallback to original
+                    }
+                }
+                
+                // Generate new signed URL
                 try {
                     com.google.cloud.storage.BlobId blobId = com.google.cloud.storage.BlobId.of(bucketName, objectName);
                     com.google.cloud.storage.BlobInfo blobInfo = com.google.cloud.storage.BlobInfo.newBuilder(blobId).build();
