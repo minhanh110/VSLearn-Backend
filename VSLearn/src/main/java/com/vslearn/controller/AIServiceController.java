@@ -31,10 +31,10 @@ public class AIServiceController {
             @RequestParam("category") String category,
             @RequestParam("difficulty") String difficulty) {
         try {
-            // File size validation (50MB)
-            if (videoFile.getSize() > 50 * 1024 * 1024) {
+            // File size validation (10MB)
+            if (videoFile.getSize() > 10 * 1024 * 1024) {
                 return ResponseEntity.badRequest().body(Map.of(
-                    "error", "File quá lớn. Tối đa 50MB"
+                    "error", "File quá lớn. Tối đa 10MB"
                 ));
             }
             
@@ -143,12 +143,39 @@ public class AIServiceController {
     }
     
     /**
+     * Xóa video từ GCS sau khi xử lý AI xong
+     */
+    @PostMapping("/delete-video")
+    public ResponseEntity<?> deleteVideo(@RequestBody Map<String, String> request) {
+        try {
+            String objectName = request.get("objectName");
+            if (objectName == null || objectName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Object name is required"
+                ));
+            }
+            
+            aiService.deleteVideoFromGCS(objectName);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Video deleted from GCS successfully"
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Failed to delete video: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
      * Exception handler for 413 Payload Too Large
      */
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ResponseEntity<?> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
         Map<String, Object> response = new HashMap<>();
-        response.put("error", "File quá lớn. Tối đa 50MB");
+        response.put("error", "File quá lớn. Tối đa 10MB");
         response.put("timestamp", System.currentTimeMillis());
         
         return ResponseEntity.badRequest().body(response);

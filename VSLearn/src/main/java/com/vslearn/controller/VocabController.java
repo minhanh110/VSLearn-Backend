@@ -259,6 +259,7 @@ public class VocabController {
         }
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PostMapping("/upload-video")
     public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
         try {
@@ -270,11 +271,11 @@ public class VocabController {
                 ));
             }
             
-            // File size validation (50MB)
-            if (file.getSize() > 50 * 1024 * 1024) {
+            // File size validation (10MB)
+            if (file.getSize() > 10 * 1024 * 1024) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "File quá lớn. Tối đa 50MB"
+                    "message", "File quá lớn. Tối đa 10MB"
                 ));
             }
             

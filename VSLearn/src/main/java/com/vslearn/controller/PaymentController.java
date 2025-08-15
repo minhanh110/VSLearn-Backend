@@ -249,9 +249,10 @@ public class PaymentController {
      */
     @GetMapping("/transaction/status/{transactionCode}")
     public ResponseEntity<Map<String, Object>> checkTransactionStatus(
-            @PathVariable String transactionCode) {
+            @PathVariable String transactionCode,
+            @RequestParam(defaultValue = "299000") double amount) {
         try {
-            System.out.println("🔍 Checking transaction status for: " + transactionCode);
+            System.out.println("🔍 Checking transaction status for: " + transactionCode + ", amount: " + amount);
             
             // Tìm transaction trong database
             var transactionOpt = transactionRepository.findByCode(transactionCode);
@@ -261,6 +262,42 @@ public class PaymentController {
                 System.out.println("🔍 Transaction found: " + transaction.getCode() + 
                                  ", Status: " + transaction.getPaymentStatus() + 
                                  ", Amount: " + transaction.getAmount());
+                
+                // Nếu đã PAID thì return luôn
+                if (transaction.getPaymentStatus() == com.vslearn.entities.Transaction.PaymentStatus.PAID) {
+                    System.out.println("✅ Transaction already PAID in database");
+                    return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "transactionCode", transactionCode,
+                        "paymentStatus", transaction.getPaymentStatus().toString(),
+                        "amount", transaction.getAmount(),
+                        "description", transaction.getDescription(),
+                        "startDate", transaction.getStartDate(),
+                        "endDate", transaction.getEndDate(),
+                        "isPaid", true
+                    ));
+                }
+                
+                // Nếu chưa PAID, kiểm tra qua Casso API
+                System.out.println("🔍 Transaction is PENDING, checking Casso API...");
+                boolean isPaid = cassoService.checkPaymentStatus(transactionCode, amount);
+                System.out.println("🔍 Casso API result: " + isPaid);
+                
+                // Nếu thanh toán thành công, cập nhật database
+                if (isPaid) {
+                    try {
+                        System.out.println("✅ Payment confirmed by Casso API, updating database...");
+                        transactionRepository.updatePaymentStatus(transactionCode, com.vslearn.entities.Transaction.PaymentStatus.PAID);
+                        System.out.println("✅ Transaction status updated to PAID");
+                        
+                        // Refresh transaction data
+                        transaction = transactionRepository.findByCode(transactionCode).orElse(transaction);
+                    } catch (Exception updateError) {
+                        System.out.println("❌ Error updating transaction status: " + updateError.getMessage());
+                    }
+                } else {
+                    System.out.println("❌ Payment not confirmed by Casso API");
+                }
                 
                 return ResponseEntity.ok(Map.of(
                     "success", true,
