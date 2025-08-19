@@ -17,5 +17,6 @@ public class VocabularyDTO {
     private String difficulty; // Có thể tính từ sortOrder hoặc area
     private String subTopicName;
     private String topicName;
+    private Long topicId; // Thêm topicId
     private String areaName;
 } 

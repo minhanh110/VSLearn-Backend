@@ -15,6 +15,7 @@ public class VocabDetailResponse {
     private Long id;
     private String vocab;
     private String topicName;
+    private Long topicId; // Thêm topicId
     private String subTopicName;
     private String description;
     private String videoLink;
