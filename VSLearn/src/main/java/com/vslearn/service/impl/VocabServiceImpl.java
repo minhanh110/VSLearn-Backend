@@ -37,6 +37,9 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.vslearn.service.NotificationService;
+import com.vslearn.service.UserService;
+import com.vslearn.dto.request.NotificationCreateRequest;
 
 @Service
 public class VocabServiceImpl implements VocabService {
@@ -48,10 +51,13 @@ public class VocabServiceImpl implements VocabService {
     private final UserRepository userRepository;
     private final com.google.cloud.storage.Storage storage;
     private final String bucketName;
+    private final NotificationService notificationService;
+    private final UserService userService;
 
     @Autowired
     public VocabServiceImpl(VocabRepository vocabRepository, SubTopicRepository subTopicRepository, TopicRepository topicRepository, AreaRepository areaRepository, VocabAreaRepository vocabAreaRepository, UserRepository userRepository,
-                          com.google.cloud.storage.Storage storage, @org.springframework.beans.factory.annotation.Value("${gcp.storage.bucket.name}") String bucketName) {
+                          com.google.cloud.storage.Storage storage, @org.springframework.beans.factory.annotation.Value("${gcp.storage.bucket.name}") String bucketName,
+                          NotificationService notificationService, UserService userService) {
         this.vocabRepository = vocabRepository;
         this.subTopicRepository = subTopicRepository;
         this.topicRepository = topicRepository;
@@ -60,6 +66,8 @@ public class VocabServiceImpl implements VocabService {
         this.userRepository = userRepository;
         this.storage = storage;
         this.bucketName = bucketName;
+        this.notificationService = notificationService;
+        this.userService = userService;
     }
 
     // Helper method to get current user ID from security context
@@ -112,6 +120,33 @@ public class VocabServiceImpl implements VocabService {
             return authentication.getAuthorities().iterator().next().getAuthority();
         }
         return null;
+    }
+
+    // Helper method to get Content Approver IDs
+    private java.util.List<Long> getContentApproverIds() {
+        try {
+            java.util.List<java.util.Map<String, Object>> contentApprovers = userService.getContentApprovers();
+            return contentApprovers.stream()
+                    .map(approver -> (Long) approver.get("id"))
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get content approvers", e);
+        }
+    }
+
+    private void notifyContentApprovers(String content, Long fromUserId) {
+        java.util.List<Long> approverIds = getContentApproverIds();
+        for (Long approverId : approverIds) {
+            try {
+                notificationService.createNotification(NotificationCreateRequest.builder()
+                        .content(content)
+                        .fromUserId(fromUserId != null ? fromUserId : getCurrentUserId())
+                        .toUserId(approverId)
+                        .build());
+            } catch (Exception ex) {
+                // ignore per-item failure
+            }
+        }
     }
 
     @Override
@@ -283,6 +318,11 @@ public class VocabServiceImpl implements VocabService {
                 .build();
         
         Vocab savedVocab = vocabRepository.save(vocab);
+        // Notify approvers about new vocab pending approval
+        try {
+            String contentNotify = String.format("Có từ vựng mới \"%s\" cần duyệt.", savedVocab.getVocab());
+            notifyContentApprovers(contentNotify, currentUserId);
+        } catch (Exception ignore) {}
         
         // Create VocabArea with video and description
         if (area != null) {
@@ -379,6 +419,16 @@ public class VocabServiceImpl implements VocabService {
         vocabToDisable.setDeletedBy(getCurrentUserId());
         
         vocabRepository.save(vocabToDisable);
+        try {
+            String content = String.format("Từ vựng \"%s\" đã bị vô hiệu hóa.", vocabToDisable.getVocab());
+            Long fromUserId = getCurrentUserId();
+            // Notify creator
+            notificationService.createNotification(NotificationCreateRequest.builder()
+                .content(content)
+                .fromUserId(fromUserId)
+                .toUserId(vocabToDisable.getCreatedBy())
+                .build());
+        } catch (Exception ignore) {}
     }
 
     @Override
@@ -409,12 +459,7 @@ public class VocabServiceImpl implements VocabService {
             vocabToRequestDelete.getVocab(), 
             reason != null ? reason : "Không có lý do");
         
-        // TODO: Implement notification service call
-        // notificationService.createNotification(NotificationCreateRequest.builder()
-        //     .content(content)
-        //     .fromUserId(currentUserId != null ? currentUserId : 1L)
-        //     .toUserId(getContentApproverId()) // Cần implement method này
-        //     .build());
+        notifyContentApprovers(content, currentUserId);
     }
 
     @Override
@@ -463,6 +508,25 @@ public class VocabServiceImpl implements VocabService {
         vocab.setUpdatedBy(getCurrentUserId());
         
         Vocab savedVocab = vocabRepository.save(vocab);
+        try {
+            String content;
+            if ("active".equalsIgnoreCase(status)) {
+                content = String.format("Từ vựng \"%s\" đã được phê duyệt.", savedVocab.getVocab());
+            } else if ("rejected".equalsIgnoreCase(status)) {
+                content = String.format("Từ vựng \"%s\" đã bị từ chối.", savedVocab.getVocab());
+            } else if ("disabled".equalsIgnoreCase(status) || "deleted".equalsIgnoreCase(status)) {
+                content = String.format("Từ vựng \"%s\" đã bị vô hiệu hóa.", savedVocab.getVocab());
+            } else {
+                content = null;
+            }
+            if (content != null && savedVocab.getCreatedBy() != null) {
+                notificationService.createNotification(NotificationCreateRequest.builder()
+                    .content(content)
+                    .fromUserId(getCurrentUserId())
+                    .toUserId(savedVocab.getCreatedBy())
+                    .build());
+            }
+        } catch (Exception ignore) {}
         return convertToVocabDetailResponse(savedVocab);
     }
 

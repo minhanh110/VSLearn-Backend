@@ -4,6 +4,8 @@ import com.vslearn.dto.AIResponseDTO;
 import com.vslearn.dto.VideoProcessingDTO;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 public interface AIService {
     
     /**
@@ -34,4 +36,6 @@ public interface AIService {
      * @param objectName Tên object trong GCS
      */
     void deleteVideoFromGCS(String objectName);
+
+    Map<String, Object> getModelClasses();
 } 
