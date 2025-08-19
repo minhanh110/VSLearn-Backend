@@ -353,6 +353,7 @@ public class VocabController {
                         dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
                         if (vocab.getSubTopic().getTopic() != null) {
                             dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                            dto.setTopicId(vocab.getSubTopic().getTopic().getId()); // Thêm topicId
                         }
                     }
                     
@@ -411,6 +412,7 @@ public class VocabController {
                         dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
                         if (vocab.getSubTopic().getTopic() != null) {
                             dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                            dto.setTopicId(vocab.getSubTopic().getTopic().getId()); // Thêm topicId
                         }
                     }
                     
@@ -474,6 +476,7 @@ public class VocabController {
                         dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
                         if (vocab.getSubTopic().getTopic() != null) {
                             dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                            dto.setTopicId(vocab.getSubTopic().getTopic().getId()); // Thêm topicId
                         }
                     }
                     
@@ -522,6 +525,7 @@ public class VocabController {
                         dto.setSubTopicName(vocab.getSubTopic().getSubTopicName());
                         if (vocab.getSubTopic().getTopic() != null) {
                             dto.setTopicName(vocab.getSubTopic().getTopic().getTopicName());
+                            dto.setTopicId(vocab.getSubTopic().getTopic().getId()); // Thêm topicId
                         }
                     }
                     
