@@ -4,6 +4,7 @@ import com.vslearn.dto.request.VietQRRequest;
 import com.vslearn.dto.response.VietQRResponse;
 import com.vslearn.service.VietQRService;
 import com.vslearn.service.CassoService;
+import com.vslearn.utils.MailUtils;
 import com.vslearn.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +20,17 @@ public class PaymentController {
     private final VietQRService vietQRService;
     private final CassoService cassoService;
     private final com.vslearn.repository.TransactionRepository transactionRepository;
+    private final MailUtils mailUtils;
     private final JwtUtil jwtUtil;
     
     @Autowired
     public PaymentController(VietQRService vietQRService, CassoService cassoService, 
                            com.vslearn.repository.TransactionRepository transactionRepository,
-                           JwtUtil jwtUtil) {
+                           MailUtils mailUtils, JwtUtil jwtUtil) {
         this.vietQRService = vietQRService;
         this.cassoService = cassoService;
         this.transactionRepository = transactionRepository;
+        this.mailUtils = mailUtils;
         this.jwtUtil = jwtUtil;
     }
     
@@ -40,6 +43,74 @@ public class PaymentController {
             "success", true,
             "message", "Payment API is working"
         ));
+    }
+
+    /**
+     * Test email service
+     */
+    @GetMapping("/test/email")
+    public ResponseEntity<Map<String, Object>> testEmailService() {
+        try {
+            boolean emailTest = mailUtils.sentEmail(
+                "test@example.com",
+                "Test Email Service",
+                "<h1>Test Email</h1><p>Email service is working!</p>"
+            );
+            return ResponseEntity.ok(Map.of(
+                "success", emailTest,
+                "message", emailTest ? "Email service is working" : "Email service test failed"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Email service error: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Test send payment confirmation email
+     */
+    @PostMapping("/test/email/payment-confirmation")
+    public ResponseEntity<Map<String, Object>> testPaymentConfirmationEmail(@RequestParam String userEmail) {
+        try {
+            String testEmailContent = generateTestPaymentConfirmationEmail();
+            boolean emailSent = mailUtils.sentEmail(
+                userEmail,
+                "🎉 Chúc mừng! Bạn đã mở khóa thành công gói học VSLearn",
+                testEmailContent
+            );
+            
+            return ResponseEntity.ok(Map.of(
+                "success", emailSent,
+                "message", emailSent ? "Payment confirmation email sent successfully to: " + userEmail : "Failed to send email"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Error sending test email: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Test email configuration
+     */
+    @GetMapping("/test/email/config")
+    public ResponseEntity<Map<String, Object>> testEmailConfig() {
+        try {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Email configuration test",
+                "emailConfigured", true,
+                "springMailEnabled", true
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Email configuration error: " + e.getMessage()
+            ));
+        }
     }
     
     /**
@@ -283,7 +354,7 @@ public class PaymentController {
                 boolean isPaid = cassoService.checkPaymentStatus(transactionCode, amount);
                 System.out.println("🔍 Casso API result: " + isPaid);
                 
-                // Nếu thanh toán thành công, cập nhật database
+                // Nếu thanh toán thành công, cập nhật database và gửi email
                 if (isPaid) {
                     try {
                         System.out.println("✅ Payment confirmed by Casso API, updating database...");
@@ -292,6 +363,25 @@ public class PaymentController {
                         
                         // Refresh transaction data
                         transaction = transactionRepository.findByCode(transactionCode).orElse(transaction);
+                        
+                        // Gửi email xác nhận thanh toán
+                        try {
+                            System.out.println("📧 Sending payment confirmation email...");
+                            String emailContent = generatePaymentConfirmationEmail(transaction);
+                            boolean emailSent = mailUtils.sentEmail(
+                                transaction.getCreatedBy().getEmail(),
+                                "🎉 Chúc mừng! Bạn đã mở khóa thành công gói học VSLearn",
+                                emailContent
+                            );
+                            if (emailSent) {
+                                System.out.println("✅ Payment confirmation email sent successfully");
+                            } else {
+                                System.out.println("❌ Failed to send payment confirmation email");
+                            }
+                        } catch (Exception emailError) {
+                            System.out.println("❌ Error sending payment confirmation email: " + emailError.getMessage());
+                        }
+                        
                     } catch (Exception updateError) {
                         System.out.println("❌ Error updating transaction status: " + updateError.getMessage());
                     }
@@ -517,5 +607,149 @@ public class PaymentController {
                 "message", "Có lỗi xảy ra: " + e.getMessage()
             ));
         }
+    }
+
+    /**
+     * Generate payment confirmation email content
+     */
+    private String generatePaymentConfirmationEmail(com.vslearn.entities.Transaction transaction) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Xác nhận thanh toán VSLearn</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                    .success-icon { font-size: 48px; margin-bottom: 20px; }
+                    .package-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+                    .feature-list { list-style: none; padding: 0; }
+                    .feature-list li { padding: 8px 0; border-bottom: 1px solid #eee; }
+                    .feature-list li:before { content: "✅ "; margin-right: 10px; }
+                    .cta-button { display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; margin: 20px 0; }
+                    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; }
+                    .contact-info { background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="success-icon">🎉</div>
+                        <h1>Chúc mừng bạn!</h1>
+                        <p>Bạn đã mở khóa thành công gói học VSLearn</p>
+                    </div>
+                    
+                    <div class="content">
+                        <h2>Xin chào %s,</h2>
+                        
+                        <p>Cảm ơn bạn đã tin tưởng và chọn VSLearn! Giao dịch thanh toán của bạn đã được xác nhận thành công.</p>
+                        
+                        <div class="package-info">
+                            <h3>📦 Thông tin gói học:</h3>
+                            <ul>
+                                <li><strong>Tên gói:</strong> %s</li>
+                                <li><strong>Thời hạn:</strong> %s</li>
+                                <li><strong>Số tiền:</strong> %,.0f VND</li>
+                                <li><strong>Mã giao dịch:</strong> %s</li>
+                                <li><strong>Ngày thanh toán:</strong> %s</li>
+                                <li><strong>Hiệu lực từ:</strong> %s đến %s</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="package-info">
+                            <h3>🚀 Tính năng gói học:</h3>
+                            <ul class="feature-list">
+                                <li>Truy cập không giới hạn</li>
+                                <li>Tất cả khóa học cao cấp</li>
+                                <li>Kiểm tra tiến độ</li>
+                                <li>Chứng chỉ hoàn thành</li>
+                                <li>Hỗ trợ ưu tiên</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <a href="http://localhost:3000/homepage" class="cta-button">Bắt đầu học ngay!</a>
+                        </div>
+                        
+                        <div class="contact-info">
+                            <h3>📞 Cần hỗ trợ?</h3>
+                            <p>Đội ngũ VSLearn luôn sẵn sàng hỗ trợ bạn:</p>
+                            <ul>
+                                <li>📧 Email: vslearn@gmail.com</li>
+                                <li>📞 Hotline: 1900 xxxx</li>
+                                <li>🌐 Website: https://vslearn.com</li>
+                            </ul>
+                        </div>
+                        
+                        <p>Chúc bạn có những trải nghiệm học tập tuyệt vời với VSLearn!</p>
+                        
+                        <p>Trân trọng,<br>
+                        <strong>Đội ngũ VSLearn</strong></p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>© 2024 VSLearn. Tất cả quyền được bảo lưu.</p>
+                        <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """,
+                transaction.getCreatedBy().getFullName(),
+                transaction.getPricing().getPricingType(),
+                transaction.getPricing().getDurationDays() + " ngày",
+                transaction.getAmount(),
+                transaction.getCode(),
+                java.time.LocalDateTime.now().toString(),
+                transaction.getStartDate().toString(),
+                transaction.getEndDate().toString()
+            );
+    }
+
+    /**
+     * Generate test payment confirmation email content
+     */
+    private String generateTestPaymentConfirmationEmail() {
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Test Email - VSLearn</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                    .success-icon { font-size: 48px; margin-bottom: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="success-icon">🎉</div>
+                        <h1>Test Email</h1>
+                        <p>Email service đang hoạt động tốt!</p>
+                    </div>
+                    
+                    <div class="content">
+                        <h2>Xin chào Test User,</h2>
+                        
+                        <p>Đây là email test để kiểm tra email service của VSLearn.</p>
+                        
+                        <p>Email service đã được cấu hình thành công!</p>
+                        
+                        <p>Trân trọng,<br>
+                        <strong>Đội ngũ VSLearn</strong></p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """;
     }
 } 

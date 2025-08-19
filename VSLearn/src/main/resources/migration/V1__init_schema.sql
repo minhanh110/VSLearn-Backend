@@ -184,7 +184,7 @@ CREATE TABLE sentence (
                           sentence_video VARCHAR(255),
                           sentence_description TEXT,
                           sentence_type VARCHAR(255),
-                          sentence_topic_id INT UNSIGNED NOT NULL,
+                          sentence_topic_id INT UNSIGNED NULL,
                           created_at DATETIME,
                           created_by INT UNSIGNED,
                           updated_at DATETIME,
@@ -235,6 +235,19 @@ CREATE TABLE notification (
     FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE sentence_words (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    sentence_id INT UNSIGNED NOT NULL,
+    word_id INT UNSIGNED NOT NULL,
+    created_at DATETIME,
+    created_by INT UNSIGNED,
+    updated_at DATETIME,
+    updated_by INT UNSIGNED,
+    deleted_at DATETIME,
+    deleted_by INT UNSIGNED,
+    FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE,
+    FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+); 
 
 ALTER TABLE notify DROP FOREIGN KEY notify_ibfk_3;
 

@@ -14,9 +14,11 @@ import java.util.List;
 public class TestSubmissionResponseDTO {
     private Integer totalQuestions;
     private Integer correctAnswers;
-    private Integer score;
+    private Integer score; // Final score (could be existing score if new score is lower)
+    private Integer originalScore; // Original score from current test attempt
     private Boolean isPassed; // >= 90%
     private Boolean topicCompleted; // Whether topic is marked as completed
+    private Boolean scoreSaved; // Whether the new score was saved (true) or existing score kept (false)
     private NextTopicInfo nextTopic; // Information about next topic if available
     
     @Getter

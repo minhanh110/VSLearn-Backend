@@ -10,10 +10,11 @@ import java.util.Optional;
 @Repository
 public interface ProgressRepository extends JpaRepository<Progress, Long> {
     //    List<Progress> findByUserId(Long userId);
-    List<Progress> findBySubTopicId(Long subTopicId);
+    List<Progress> findBySubTopic_Id(Long subTopicId);
 //    Progress findByUserIdAndSubTopicId(Long userId, Long subTopicId);
     List<Progress> findByCreatedBy_Id(Long userId);
     
     // Tìm progress theo user và subtopic
     Optional<Progress> findByCreatedBy_IdAndSubTopic_Id(Long userId, Long subTopicId);
+    long countByCreatedBy_IdAndIsComplete(Long userId, Boolean isComplete);
 } 

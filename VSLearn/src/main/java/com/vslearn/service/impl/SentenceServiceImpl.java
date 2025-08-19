@@ -12,12 +12,16 @@ import com.vslearn.dto.response.VocabDetailResponse;
 import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.entities.Sentence;
 import com.vslearn.entities.SentenceVocab;
+import com.vslearn.entities.SentenceWord;
 import com.vslearn.entities.Topic;
 import com.vslearn.entities.Vocab;
+import com.vslearn.entities.Word;
 import com.vslearn.repository.SentenceRepository;
 import com.vslearn.repository.SentenceVocabRepository;
+import com.vslearn.repository.SentenceWordRepository;
 import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.VocabRepository;
+import com.vslearn.repository.WordRepository;
 import com.vslearn.service.SentenceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +56,12 @@ public class SentenceServiceImpl implements SentenceService {
     private VocabRepository vocabRepository;
 
     @Autowired
+    private WordRepository wordRepository;
+
+    @Autowired
+    private SentenceWordRepository sentenceWordRepository;
+
+    @Autowired
     private Storage storage;
 
     @Value("${gcp.storage.bucket.name}")
@@ -59,12 +69,15 @@ public class SentenceServiceImpl implements SentenceService {
 
     @Override
     public SentenceDetailResponse createSentence(SentenceCreateRequest request) {
-        // Validate topic exists
-        Optional<Topic> topicOpt = topicRepository.findById(request.getTopicId());
-        if (topicOpt.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy Topic với ID: " + request.getTopicId());
+        // Validate topic exists only if topicId is provided
+        Topic topic = null;
+        if (request.getTopicId() != null) {
+            Optional<Topic> topicOpt = topicRepository.findById(request.getTopicId());
+            if (topicOpt.isEmpty()) {
+                throw new RuntimeException("Không tìm thấy Topic với ID: " + request.getTopicId());
+            }
+            topic = topicOpt.get();
         }
-        Topic topic = topicOpt.get();
 
         // Get current user ID
         Long currentUserId = getCurrentUserId();
@@ -74,7 +87,7 @@ public class SentenceServiceImpl implements SentenceService {
                 .sentenceVideo(request.getSentenceVideo()) // This will be objectName, not full URL
                 .sentenceMeaning(request.getSentenceMeaning())
                 .sentenceDescription(request.getSentenceDescription())
-                .sentenceTopic(topic)
+                .sentenceTopic(topic) // Can be null
                 .createdAt(Instant.now())
                 .createdBy(currentUserId)
                 .build();
@@ -101,6 +114,22 @@ public class SentenceServiceImpl implements SentenceService {
                             .createdBy(currentUserId)
                             .build();
                     sentenceVocabRepository.save(sentenceVocab);
+                }
+            }
+        }
+
+        // Create sentence_word relationships if wordIds provided
+        if (request.getWordIds() != null && !request.getWordIds().isEmpty()) {
+            for (Long wordId : request.getWordIds()) {
+                Optional<Word> wordOpt = wordRepository.findById(wordId);
+                if (wordOpt.isPresent()) {
+                    SentenceWord sentenceWord = SentenceWord.builder()
+                            .sentence(savedSentence)
+                            .word(wordOpt.get())
+                            .createdAt(Instant.now())
+                            .createdBy(currentUserId)
+                            .build();
+                    sentenceWordRepository.save(sentenceWord);
                 }
             }
         }
@@ -262,15 +291,52 @@ public class SentenceServiceImpl implements SentenceService {
         return sentenceRepository.existsBySentenceTopicId(topicId);
     }
 
+    @Override
+    public List<SentenceDetailResponse> getSentencesWithoutTopic() {
+        List<Sentence> sentences = sentenceRepository.findBySentenceTopicIsNull();
+        return sentences.stream()
+                .map(this::convertToSentenceDetailResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void assignSentenceToTopic(Long sentenceId, Long topicId) {
+        Optional<Sentence> sentenceOpt = sentenceRepository.findById(sentenceId);
+        if (sentenceOpt.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy Sentence với ID: " + sentenceId);
+        }
+        
+        Optional<Topic> topicOpt = topicRepository.findById(topicId);
+        if (topicOpt.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy Topic với ID: " + topicId);
+        }
+        
+        Sentence sentence = sentenceOpt.get();
+        Topic topic = topicOpt.get();
+        
+        sentence.setSentenceTopic(topic);
+        sentence.setUpdatedAt(Instant.now());
+        sentence.setUpdatedBy(getCurrentUserId());
+        
+        sentenceRepository.save(sentence);
+    }
+
     private SentenceDetailResponse convertToSentenceDetailResponse(Sentence sentence) {
         // Get vocabs for this sentence
         List<SentenceVocab> sentenceVocabs = sentenceVocabRepository.findBySentenceId(sentence.getId());
         List<VocabDetailResponse> vocabResponses = sentenceVocabs.stream()
-                .map(sv -> VocabDetailResponse.builder()
-                        .id(sv.getVocab().getId())
-                        .vocab(sv.getVocab().getVocab())
-                        .description(sv.getVocab().getMeaning())
-                        .build())
+                .map(sv -> {
+                    Long topicId = null;
+                    if (sv.getVocab().getSubTopic() != null && sv.getVocab().getSubTopic().getTopic() != null) {
+                        topicId = sv.getVocab().getSubTopic().getTopic().getId();
+                    }
+                    return VocabDetailResponse.builder()
+                            .id(sv.getVocab().getId())
+                            .vocab(sv.getVocab().getVocab())
+                            .description(sv.getVocab().getMeaning())
+                            .topicId(topicId)
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         // Get parent sentence if exists
@@ -279,15 +345,21 @@ public class SentenceServiceImpl implements SentenceService {
             parentResponse = convertToSentenceDetailResponse(sentence.getParent());
         }
 
+        // Build topic response only if sentenceTopic exists
+        TopicDetailResponse topicResponse = null;
+        if (sentence.getSentenceTopic() != null) {
+            topicResponse = TopicDetailResponse.builder()
+                    .id(sentence.getSentenceTopic().getId())
+                    .topicName(sentence.getSentenceTopic().getTopicName())
+                    .build();
+        }
+
         return SentenceDetailResponse.builder()
                 .id(sentence.getId())
                 .sentenceVideo(sentence.getSentenceVideo())
                 .sentenceMeaning(sentence.getSentenceMeaning())
                 .sentenceDescription(sentence.getSentenceDescription())
-                .topic(TopicDetailResponse.builder()
-                        .id(sentence.getSentenceTopic().getId())
-                        .topicName(sentence.getSentenceTopic().getTopicName())
-                        .build())
+                .topic(topicResponse) // Can be null
                 .vocabs(vocabResponses)
                 .parent(parentResponse)
                 .createdAt(sentence.getCreatedAt())

@@ -523,6 +523,7 @@ public class VocabServiceImpl implements VocabService {
 
     private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {
         String topicName = null;
+        Long topicId = null; // Thêm topicId
         String subTopicName = null;
         String description = null;
         String videoLink = null;
@@ -535,12 +536,14 @@ public class VocabServiceImpl implements VocabService {
             // Get topic name from SubTopic's Topic relationship
             if (vocab.getSubTopic().getTopic() != null) {
                 topicName = vocab.getSubTopic().getTopic().getTopicName();
+                topicId = vocab.getSubTopic().getTopic().getId(); // Thêm topicId
             } else {
                 // Fallback: try to get topic name from repository
                 try {
                     SubTopic subTopic = subTopicRepository.findById(vocab.getSubTopic().getId()).orElse(null);
                     if (subTopic != null && subTopic.getTopic() != null) {
                         topicName = subTopic.getTopic().getTopicName();
+                        topicId = subTopic.getTopic().getId(); // Thêm topicId
                     }
                 } catch (Exception e) {
                     System.err.println("Error loading topic name for vocab " + vocab.getId() + ": " + e.getMessage());
@@ -607,6 +610,7 @@ public class VocabServiceImpl implements VocabService {
                 .id(vocab.getId())
                 .vocab(vocab.getVocab())
                 .topicName(topicName)
+                .topicId(topicId) // Thêm topicId vào response
                 .subTopicName(subTopicName)
                 .description(description)
                 .videoLink(videoLink)

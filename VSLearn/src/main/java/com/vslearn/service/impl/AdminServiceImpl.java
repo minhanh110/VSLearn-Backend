@@ -35,20 +35,19 @@ public class AdminServiceImpl implements AdminService {
     private final VocabRepository vocabRepository;
     private final ProgressRepository progressRepository;
     private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
     public AdminServiceImpl(UserRepository userRepository, TopicRepository topicRepository, 
                           VocabRepository vocabRepository, ProgressRepository progressRepository,
-                          TransactionRepository transactionRepository) {
+                          TransactionRepository transactionRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.topicRepository = topicRepository;
         this.vocabRepository = vocabRepository;
         this.progressRepository = progressRepository;
         this.transactionRepository = transactionRepository;
+        this.passwordEncoder = passwordEncoder;
     }
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
 
     @Override
     public AdminDashboardResponse getDashboardStats() {
@@ -154,16 +153,10 @@ public class AdminServiceImpl implements AdminService {
             List<Map<String, Object>> learnersData = paginatedLearners.stream()
                 .map(user -> {
                     // Calculate topics completed from progress
-                    long topicsCompleted = progressRepository.findAll().stream()
-                        .filter(progress -> progress.getCreatedBy().getId().equals(user.getId()))
-                        .filter(progress -> progress.getIsComplete() != null && progress.getIsComplete())
-                        .count();
+                    long topicsCompleted = progressRepository.countByCreatedBy_IdAndIsComplete(user.getId(), true);
                     
                     // Calculate packages owned from transactions
-                    long packagesOwned = transactionRepository.findAll().stream()
-                        .filter(transaction -> transaction.getCreatedBy().getId().equals(user.getId()))
-                        .filter(transaction -> transaction.getPaymentStatus() != null && PaymentStatus.PAID.equals(transaction.getPaymentStatus()))
-                        .count();
+                    long packagesOwned = transactionRepository.countByCreatedBy_IdAndPaymentStatus(user.getId(), PaymentStatus.PAID);
                     
                     Map<String, Object> learnerData = new HashMap<>();
                     learnerData.put("id", user.getId());

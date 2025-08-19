@@ -62,4 +62,8 @@ public class Vocab {
 
     @OneToMany(mappedBy = "vocab", fetch = FetchType.LAZY)
     private List<VocabArea> vocabAreas;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Vocab parent;
 }

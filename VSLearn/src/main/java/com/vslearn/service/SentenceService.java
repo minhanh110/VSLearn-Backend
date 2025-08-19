@@ -31,4 +31,6 @@ public interface SentenceService {
     List<SentenceDetailResponse> getSentencesByTopicId(Long topicId);
     
     boolean existsByTopicId(Long topicId);
+    List<SentenceDetailResponse> getSentencesWithoutTopic();
+    void assignSentenceToTopic(Long sentenceId, Long topicId);
 } 

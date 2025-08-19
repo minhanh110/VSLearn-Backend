@@ -10,6 +10,7 @@ import java.util.List;
 public interface SentenceRepository extends JpaRepository<Sentence, Long> {
     List<Sentence> findBySentenceTopicId(Long topicId);
     boolean existsBySentenceTopicId(Long topicId);
+    List<Sentence> findBySentenceTopicIsNull();
 
     // New: find children by parent id
     List<Sentence> findByParent_Id(Long parentId);

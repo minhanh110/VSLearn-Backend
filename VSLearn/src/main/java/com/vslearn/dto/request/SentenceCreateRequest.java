@@ -22,10 +22,11 @@ public class SentenceCreateRequest {
     
     private String sentenceDescription;
     
-    @NotNull(message = "Topic ID không được để trống")
-    private Long topicId;
+    private Long topicId; // Optional: có thể null để tạo câu không thuộc topic nào
     
     private List<Long> vocabIds; // Danh sách vocab IDs để tạo sentence_vocab relationships
+    
+    private List<Long> wordIds; // Danh sách word IDs để tạo sentence_word relationships
     
     private Long parentId; // Optional: parent sentence ID
 } 

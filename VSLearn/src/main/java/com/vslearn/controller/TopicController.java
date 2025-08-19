@@ -50,6 +50,17 @@ public class TopicController {
         }
     }
 
+    // New: get child topic detail for a parent topic id
+    @GetMapping("/{topicId}/child")
+    public ResponseEntity<Map<String, Object>> getChildTopic(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.getChildTopic(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "data", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_CREATOR', 'ROLE_GENERAL_MANAGER')")
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createTopic(@RequestBody TopicCreateRequest request) {
@@ -86,6 +97,24 @@ public class TopicController {
     @GetMapping("/all")
     public ResponseEntity<List<TopicDetailResponse>> getAllTopics() {
         return ResponseEntity.ok(topicService.getAllTopics());
+    }
+
+    // Check duplicate topic name
+    @GetMapping("/check-duplicate")
+    public ResponseEntity<Map<String, Object>> checkDuplicateTopicName(
+            @RequestParam String topicName,
+            @RequestParam(required = false) String excludeStatus
+    ) {
+        try {
+            boolean isDuplicate = topicService.checkDuplicateTopicName(topicName, excludeStatus);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "isDuplicate", isDuplicate,
+                "message", isDuplicate ? "Tên chủ đề đã tồn tại" : "Tên chủ đề có thể sử dụng"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
     }
 
     @PreAuthorize("hasAnyAuthority('ROLE_CONTENT_APPROVER', 'ROLE_GENERAL_MANAGER')")
@@ -271,6 +300,17 @@ public class TopicController {
             return ResponseEntity.ok(history);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // New: resolve topic by id (parent or child)
+    @GetMapping("/resolve/{topicId}")
+    public ResponseEntity<Map<String, Object>> resolveTopic(@PathVariable Long topicId) {
+        try {
+            TopicDetailResponse response = topicService.resolveTopic(topicId);
+            return ResponseEntity.ok(Map.of("success", true, "data", response));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 

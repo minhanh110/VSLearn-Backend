@@ -228,28 +228,20 @@ public class TestServiceImpl implements TestService {
 
     private TestSubmissionResponseDTO submitTestLogic(TestSubmissionRequest request) {
         // Use the score calculated by frontend since it has the correct questions and answers
-        int score = request.getScore() != null ? request.getScore() : 0;
+        int originalScore = request.getScore() != null ? request.getScore() : 0;
         int totalQuestions = request.getAnswers().size();
-        int correctAnswers = (int) Math.round((double) score * totalQuestions / 100);
+        int correctAnswers = (int) Math.round((double) originalScore * totalQuestions / 100);
         
         System.out.println("=== submitTestLogic started ===");
-        System.out.println("Using frontend calculated score: " + score + "%");
+        System.out.println("Using frontend calculated score: " + originalScore + "%");
         System.out.println("Total questions: " + totalQuestions);
         System.out.println("Calculated correct answers: " + correctAnswers);
         System.out.println("User ID: " + request.getUserId());
         System.out.println("Topic ID: " + request.getTopicId());
         
-        boolean isPassed = score >= 90;
-        
-        System.out.println("Is passed: " + isPassed);
-        
-        // If passed, mark topic as completed
-        boolean topicCompleted = false;
-        if (isPassed) {
-            topicCompleted = markTopicAsCompleted(request.getUserId(), request.getTopicId());
-        }
-        
         // Save or update test score in TopicPoint
+        boolean scoreSaved = true; // Track whether the new score was saved
+        int finalScore = originalScore; // Final score that will be used for pass/fail logic
         try {
             System.out.println("=== Starting database save process ===");
             
@@ -270,24 +262,39 @@ public class TestServiceImpl implements TestService {
                         .max(Comparator.comparing(TopicPoint::getCreatedAt))
                         .orElse(existingTopicPoints.get(0));
                 
-                // Update existing TopicPoint with test score
-                System.out.println("Updating existing TopicPoint ID: " + existingTopicPoint.getId() + " with score: " + score);
-                System.out.println("Previous totalPoint: " + existingTopicPoint.getTotalPoint());
-                existingTopicPoint.setTotalPoint((double) score);
-                existingTopicPoint.setUpdatedAt(Instant.now());
-                TopicPoint savedTopicPoint = topicPointRepository.save(existingTopicPoint);
-                System.out.println("✅ Successfully updated TopicPoint ID: " + savedTopicPoint.getId() + " with totalPoint: " + savedTopicPoint.getTotalPoint());
+                double currentScore = existingTopicPoint.getTotalPoint() != null ? existingTopicPoint.getTotalPoint() : 0.0;
+                System.out.println("Current score in database: " + currentScore);
+                System.out.println("New score from test: " + originalScore);
+                
+                // Only update if new score is higher than or equal to current score
+                if (originalScore >= currentScore) {
+                    System.out.println("✅ New score is higher or equal, updating TopicPoint ID: " + existingTopicPoint.getId());
+                    existingTopicPoint.setTotalPoint((double) originalScore);
+                    existingTopicPoint.setUpdatedAt(Instant.now());
+                    TopicPoint savedTopicPoint = topicPointRepository.save(existingTopicPoint);
+                    System.out.println("✅ Successfully updated TopicPoint ID: " + savedTopicPoint.getId() + " with totalPoint: " + savedTopicPoint.getTotalPoint());
+                    finalScore = originalScore;
+                    scoreSaved = true;
+                } else {
+                    System.out.println("⚠️ New score (" + originalScore + ") is lower than current score (" + currentScore + "), keeping existing score");
+                    // Use the existing score for final score
+                    finalScore = (int) Math.round(currentScore);
+                    System.out.println("Using existing score: " + finalScore + "% for final score");
+                    scoreSaved = false;
+                }
             } else {
-                // Create new TopicPoint with test score
-                System.out.println("Creating new TopicPoint with score: " + score);
+                // Create new TopicPoint with test score (first time taking test)
+                System.out.println("Creating new TopicPoint with score: " + originalScore);
                 TopicPoint newTopicPoint = TopicPoint.builder()
                         .topic(topic)
-                        .totalPoint((double) score)
+                        .totalPoint((double) originalScore)
                         .createdBy(user)
                         .createdAt(Instant.now())
                         .build();
                 TopicPoint savedTopicPoint = topicPointRepository.save(newTopicPoint);
                 System.out.println("✅ Successfully created new TopicPoint ID: " + savedTopicPoint.getId() + " with totalPoint: " + savedTopicPoint.getTotalPoint());
+                finalScore = originalScore;
+                scoreSaved = true;
             }
             
             System.out.println("=== Database save process completed ===");
@@ -306,15 +313,27 @@ public class TestServiceImpl implements TestService {
             e.printStackTrace();
         }
         
+        // Determine final pass/fail status and topic completion based on final score
+        boolean isPassed = finalScore >= 90;
+        System.out.println("Final score: " + finalScore + "%, Is passed: " + isPassed);
+        
+        // If passed, mark topic as completed
+        boolean topicCompleted = false;
+        if (isPassed) {
+            topicCompleted = markTopicAsCompleted(request.getUserId(), request.getTopicId());
+        }
+        
         // Get next topic info
         TestSubmissionResponseDTO.NextTopicInfo nextTopic = getNextTopicLogic(request.getUserId(), request.getTopicId());
         
         return new TestSubmissionResponseDTO(
             totalQuestions,
             correctAnswers,
-            score,
+            finalScore, // Use finalScore for the response
+            originalScore, // Original score from current test attempt
             isPassed,
             topicCompleted,
+            scoreSaved,
             nextTopic
         );
     }
