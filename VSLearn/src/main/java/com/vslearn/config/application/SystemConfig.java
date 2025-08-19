@@ -46,6 +46,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/topics/list").permitAll()
                 .requestMatchers("/api/v1/topics/all").permitAll()
                 .requestMatchers("/api/v1/topics/{topicId}").permitAll()
+                .requestMatchers("/api/v1/topics/*/child").permitAll()
                 .requestMatchers("/api/v1/topics/status-options").permitAll()
                 .requestMatchers("/api/v1/vocab/topics").permitAll()
                 .requestMatchers("/api/v1/vocab/regions").permitAll()
@@ -59,6 +60,7 @@ public class SystemConfig implements WebMvcConfigurer {
                 .requestMatchers("/api/v1/vocab/debug/**").permitAll()
                 .requestMatchers("/api/v1/ai/**").permitAll()
                 .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/public/**").permitAll() // Allow public endpoints
                 .requestMatchers("/api/v1/payment/**").permitAll() // Thêm payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/payment/**").permitAll() // Allow OPTIONS for payment endpoints
                 .requestMatchers(HttpMethod.OPTIONS, "/api/v1/revenue/**").permitAll() // Allow OPTIONS for revenue endpoints
