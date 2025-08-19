@@ -55,4 +55,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Transactional
     @Query("UPDATE Transaction t SET t.paymentStatus = :status WHERE t.code = :code")
     void updatePaymentStatus(@Param("code") String code, @Param("status") Transaction.PaymentStatus status);
+    
+    /**
+     * Đếm số transaction theo user ID và payment status
+     */
+    long countByCreatedBy_IdAndPaymentStatus(Long userId, Transaction.PaymentStatus status);
 } 
