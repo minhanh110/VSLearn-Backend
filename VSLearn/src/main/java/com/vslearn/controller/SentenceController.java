@@ -7,12 +7,16 @@ import com.vslearn.dto.response.SentenceListResponse;
 import com.vslearn.dto.response.VideoUploadResponse;
 import com.vslearn.service.SentenceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +27,12 @@ import java.util.Map;
 public class SentenceController {
     
     private final SentenceService sentenceService;
+    
+    @Value("${gcp.storage.bucket.name}")
+    private String bucketName;
+    
+    @Autowired
+    private Storage storage;
     
     @Autowired
     public SentenceController(SentenceService sentenceService) {
@@ -158,5 +168,72 @@ public class SentenceController {
     public ResponseEntity<Map<String, Boolean>> existsByTopicId(@PathVariable Long topicId) {
         boolean exists = sentenceService.existsByTopicId(topicId);
         return ResponseEntity.ok(Map.of("exists", exists));
+    }
+    
+    // Lấy danh sách câu không có topic
+    @GetMapping("/without-topic")
+    public ResponseEntity<List<SentenceDetailResponse>> getSentencesWithoutTopic() {
+        List<SentenceDetailResponse> sentences = sentenceService.getSentencesWithoutTopic();
+        return ResponseEntity.ok(sentences);
+    }
+    
+    // Gán câu vào topic
+    @PutMapping("/{sentenceId}/assign-topic")
+    public ResponseEntity<Map<String, Object>> assignSentenceToTopic(
+            @PathVariable Long sentenceId,
+            @RequestBody Map<String, Long> request) {
+        try {
+            Long topicId = request.get("topicId");
+            if (topicId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Topic ID không được để trống"
+                ));
+            }
+            
+            sentenceService.assignSentenceToTopic(sentenceId, topicId);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đã gán câu vào chủ đề thành công"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Có lỗi xảy ra: " + e.getMessage()
+            ));
+        }
+    }
+    
+    // Serve video files from Google Cloud Storage for sentences
+    @GetMapping("/video")
+    @CrossOrigin(origins = "*", allowCredentials = "false") // Allow all origins without credentials
+    public ResponseEntity<String> getVideo(@RequestParam String objectName) {
+        try {
+            System.out.println("🔍 Object name: " + objectName);
+            System.out.println("🔍 Bucket name: " + bucketName);
+            
+            // Generate signed URL
+            BlobId blobId = BlobId.of(bucketName, objectName);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+            
+            System.out.println("🔍 BlobId: " + blobId);
+            System.out.println("🔍 BlobInfo: " + blobInfo);
+            
+            java.net.URL signedUrl = storage.signUrl(blobInfo, 2, java.util.concurrent.TimeUnit.HOURS, 
+                Storage.SignUrlOption.withV4Signature());
+            
+            System.out.println("🔍 Signed Video URL: " + signedUrl);
+            
+            // Redirect to signed URL
+            return ResponseEntity.status(302)
+                .header("Location", signedUrl.toString())
+                .build();
+                
+        } catch (Exception e) {
+            System.out.println("❌ Error serving video: " + e.getMessage());
+            System.out.println("❌ Exception type: " + e.getClass().getSimpleName());
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
     }
 } 
