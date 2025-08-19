@@ -2,7 +2,6 @@ package com.vslearn.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -15,33 +14,27 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "sentences", indexes = {
-        @Index(name = "sentence_topic_id", columnList = "sentence_topic_id")
+@Table(name = "sentence_words", indexes = {
+        @Index(name = "sentence_id", columnList = "sentence_id"),
+        @Index(name = "word_id", columnList = "word_id")
 })
-public class Sentence {
+public class SentenceWord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
-    @Lob
-    @Column(name = "sentence_video")
-    private String sentenceVideo;
-
-    @Lob
-    @Column(name = "sentence_meaning")
-    private String sentenceMeaning;
-
-    @Lob
-    @Column(name = "sentence_description")
-    private String sentenceDescription;
-
-
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "sentence_topic_id", nullable = true)
-    private Topic sentenceTopic;
+    @JoinColumn(name = "sentence_id", nullable = false)
+    private Sentence sentence;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "word_id", nullable = false)
+    private Word word;
 
     @Column(name = "created_at")
     private Instant createdAt;
@@ -60,8 +53,4 @@ public class Sentence {
 
     @Column(name = "deleted_by", columnDefinition = "int UNSIGNED")
     private Long deletedBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private Sentence parent;
-}
+} 
