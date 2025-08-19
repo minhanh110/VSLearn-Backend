@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -179,5 +180,18 @@ public class AIServiceController {
         response.put("timestamp", System.currentTimeMillis());
         
         return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Proxy model classes from AI service
+     */
+    @GetMapping("/model/classes")
+    public ResponseEntity<?> getModelClasses() {
+        try {
+            Map<String, Object> response = aiService.getModelClasses();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
     }
 } 

@@ -178,4 +178,17 @@ public class AIServiceImpl implements AIService {
             return false;
         }
     }
+
+    @Override
+    public Map<String, Object> getModelClasses() {
+        try {
+            ResponseEntity<Map> response = restTemplate.getForEntity(
+                AI_SERVICE_URL + "/model/classes",
+                Map.class
+            );
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get model classes: " + e.getMessage());
+        }
+    }
 } 
