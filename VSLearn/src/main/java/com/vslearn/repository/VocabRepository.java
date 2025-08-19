@@ -193,4 +193,7 @@ public interface VocabRepository extends JpaRepository<Vocab, Long> {
     
     // New: filter by deletedAt for soft delete support
     List<Vocab> findBySubTopic_IdAndDeletedAtIsNull(Long subTopicId);
+    
+    // New: find children by parent id
+    List<Vocab> findByParent_IdAndDeletedAtIsNull(Long parentId);
 } 

@@ -57,4 +57,7 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     Page<Topic> findByParentIsNullAndStatusAndDeletedAtIsNullOrderBySortOrderAsc(String status, Pageable pageable);
     Page<Topic> findByParentIsNullAndTopicNameContainingIgnoreCaseAndDeletedAtIsNull(String topicName, Pageable pageable);
     Page<Topic> findByParentIsNullAndDeletedAtIsNull(Pageable pageable);
+
+    // Duplicate name checks
+    boolean existsByTopicNameIgnoreCaseAndStatusAndDeletedAtIsNull(String topicName, String status);
 } 
