@@ -10,6 +10,7 @@ import com.vslearn.dto.response.TopicDetailResponse;
 import com.vslearn.dto.response.TopicListResponse;
 import com.vslearn.dto.response.SubTopicDetailResponse;
 import com.vslearn.dto.response.VocabDetailResponse;
+import com.vslearn.entities.Sentence;
 import com.vslearn.entities.Topic;
 import com.vslearn.entities.SubTopic;
 import com.vslearn.entities.Vocab;
@@ -17,6 +18,7 @@ import com.vslearn.entities.User;
 import com.vslearn.repository.TopicRepository;
 import com.vslearn.repository.SubTopicRepository;
 import com.vslearn.repository.VocabRepository;
+import com.vslearn.repository.SentenceRepository;
 import com.vslearn.repository.UserRepository;
 import com.vslearn.service.TopicService;
 import com.vslearn.service.NotificationService;
@@ -45,16 +47,18 @@ public class TopicServiceImpl implements TopicService {
     private final TopicRepository topicRepository;
     private final SubTopicRepository subTopicRepository;
     private final VocabRepository vocabRepository;
+    private final SentenceRepository sentenceRepository;
     private final NotificationService notificationService;
     private final UserService userService;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     
     @Autowired
-    public TopicServiceImpl(TopicRepository topicRepository, SubTopicRepository subTopicRepository, VocabRepository vocabRepository, NotificationService notificationService, UserService userService, UserRepository userRepository, JwtUtil jwtUtil) {
+    public TopicServiceImpl(TopicRepository topicRepository, SubTopicRepository subTopicRepository, VocabRepository vocabRepository, SentenceRepository sentenceRepository, NotificationService notificationService, UserService userService, UserRepository userRepository, JwtUtil jwtUtil) {
         this.topicRepository = topicRepository;
         this.subTopicRepository = subTopicRepository;
         this.vocabRepository = vocabRepository;
+        this.sentenceRepository = sentenceRepository;
         this.notificationService = notificationService;
         this.userService = userService;
         this.userRepository = userRepository;
@@ -247,13 +251,64 @@ public class TopicServiceImpl implements TopicService {
                 .deletedBy(topic.getDeletedBy())
                 .build();
     }
+
+    @Override
+    public TopicDetailResponse getChildTopic(Long parentTopicId) {
+        System.out.println("🔍 TopicService.getChildTopic - parentTopicId: " + parentTopicId);
+        List<Topic> children = topicRepository.findByParent_IdAndDeletedAtIsNull(parentTopicId);
+        if (children.isEmpty()) {
+            System.out.println("🔍 TopicService.getChildTopic - no child topic found");
+            throw new RuntimeException("Không tìm thấy child topic cho parent topic với id: " + parentTopicId);
+        }
+        Topic child = children.get(0);
+        System.out.println("🔍 TopicService.getChildTopic - found child topic: " + child.getTopicName());
+        
+        List<SubTopic> subTopics = subTopicRepository.findByTopic_IdAndDeletedAtIsNull(child.getId());
+        List<SubTopicDetailResponse> subtopicResponses = subTopics.stream().map(sub -> {
+            List<Vocab> vocabs = vocabRepository.findBySubTopic_IdAndDeletedAtIsNull(sub.getId());
+            List<VocabDetailResponse> vocabResponses = vocabs.stream()
+                .map(this::convertToVocabDetailResponse)
+                .collect(Collectors.toList());
+            return SubTopicDetailResponse.builder()
+                .id(sub.getId())
+                .subTopicName(sub.getSubTopicName())
+                .sortOrder(sub.getSortOrder())
+                .vocabs(vocabResponses)
+                .build();
+        }).collect(Collectors.toList());
+        
+        return TopicDetailResponse.builder()
+                .id(child.getId())
+                .topicName(child.getTopicName())
+                .isFree(child.getIsFree())
+                .status(child.getStatus())
+                .sortOrder(child.getSortOrder())
+                .subtopics(subtopicResponses)
+                .createdAt(child.getCreatedAt())
+                .createdBy(child.getCreatedBy())
+                .updatedAt(child.getUpdatedAt())
+                .updatedBy(child.getUpdatedBy())
+                .deletedAt(child.getDeletedAt())
+                .deletedBy(child.getDeletedBy())
+                .build();
+    }
     
     @Override
     public TopicDetailResponse createTopic(TopicCreateRequest request) {
         Long currentUserId = getCurrentUserId();
+
+        // Validate duplicate active topic name
+        String normalizedName = request.getTopicName() != null ? request.getTopicName().trim() : "";
+        if (normalizedName.isEmpty()) {
+            throw new RuntimeException("Tên chủ đề không được để trống");
+        }
+        boolean activeExists = topicRepository.existsByTopicNameIgnoreCaseAndStatusAndDeletedAtIsNull(normalizedName, "active");
+        if (activeExists) {
+            throw new RuntimeException("Chủ đề với tên này đang hoạt động, không thể tạo trùng");
+        }
         
         Topic topic = Topic.builder()
-                .topicName(request.getTopicName())
+                .topicName(normalizedName)
                 .isFree(request.getIsFree() != null ? request.getIsFree() : false)
                 .status("pending")
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0L)
@@ -488,9 +543,25 @@ public class TopicServiceImpl implements TopicService {
     }
 
     private VocabDetailResponse convertToVocabDetailResponse(Vocab vocab) {
+        String topicName = null;
+        Long topicId = null;
+        String subTopicName = null;
+        
+        // Get topic info from SubTopic
+        if (vocab.getSubTopic() != null) {
+            subTopicName = vocab.getSubTopic().getSubTopicName();
+            if (vocab.getSubTopic().getTopic() != null) {
+                topicName = vocab.getSubTopic().getTopic().getTopicName();
+                topicId = vocab.getSubTopic().getTopic().getId();
+            }
+        }
+        
         return VocabDetailResponse.builder()
             .id(vocab.getId())
             .vocab(vocab.getVocab())
+            .topicName(topicName)
+            .topicId(topicId)
+            .subTopicName(subTopicName)
             .createdAt(vocab.getCreatedAt())
             .createdBy(vocab.getCreatedBy())
             .updatedAt(vocab.getUpdatedAt())
@@ -521,6 +592,100 @@ public class TopicServiceImpl implements TopicService {
                 .parent(parent)
                 .build();
         return topicRepository.save(child);
+    }
+
+    @Override
+    public boolean checkDuplicateTopicName(String topicName, String excludeStatus) {
+        if (topicName == null || topicName.trim().isEmpty()) {
+            return false; // Empty name is not considered duplicate
+        }
+        
+        String normalizedName = topicName.trim();
+        
+        // Check for active topics
+        boolean activeExists = topicRepository.existsByTopicNameIgnoreCaseAndStatusAndDeletedAtIsNull(normalizedName, "active");
+        if (activeExists) {
+            return true;
+        }
+        
+        // Check for pending topics
+        boolean pendingExists = topicRepository.existsByTopicNameIgnoreCaseAndStatusAndDeletedAtIsNull(normalizedName, "pending");
+        if (pendingExists) {
+            return true;
+        }
+        
+        // Check for draft topics (if not excluded)
+        if (excludeStatus == null || !excludeStatus.equals("draft")) {
+            boolean draftExists = topicRepository.existsByTopicNameIgnoreCaseAndStatusAndDeletedAtIsNull(normalizedName, "draft");
+            if (draftExists) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private void cloneSubtopicsAndVocabs(Topic parent, Topic child) {
+        // Get existing subtopics from parent
+        List<SubTopic> parentSubtopics = subTopicRepository.findByTopic_IdAndDeletedAtIsNull(parent.getId());
+        
+        // Delete existing subtopics in child (if any)
+        List<SubTopic> existingChildSubtopics = subTopicRepository.findByTopic_IdAndDeletedAtIsNull(child.getId());
+        for (SubTopic existingSub : existingChildSubtopics) {
+            // Delete associated vocabs first
+            List<Vocab> existingVocabs = vocabRepository.findBySubTopic_IdAndDeletedAtIsNull(existingSub.getId());
+            for (Vocab existingVocab : existingVocabs) {
+                existingVocab.setDeletedAt(Instant.now());
+                existingVocab.setDeletedBy(getCurrentUserId());
+                vocabRepository.save(existingVocab);
+            }
+            // Delete subtopic
+            existingSub.setDeletedAt(Instant.now());
+            existingSub.setDeletedBy(getCurrentUserId());
+            subTopicRepository.save(existingSub);
+        }
+        
+        // Clone subtopics and vocabs from parent to child
+        for (SubTopic parentSub : parentSubtopics) {
+            // Create new subtopic for child
+            SubTopic childSub = SubTopic.builder()
+                    .subTopicName(parentSub.getSubTopicName())
+                    .sortOrder(parentSub.getSortOrder())
+                    .status(parentSub.getStatus()) // Clone status from parent
+                    .topic(child)
+                    .createdAt(Instant.now())
+                    .createdBy(getCurrentUserId())
+                    .build();
+            SubTopic savedChildSub = subTopicRepository.save(childSub);
+            
+            // Clone vocabs for this subtopic
+            List<Vocab> parentVocabs = vocabRepository.findBySubTopic_IdAndDeletedAtIsNull(parentSub.getId());
+            for (Vocab parentVocab : parentVocabs) {
+                Vocab childVocab = Vocab.builder()
+                        .vocab(parentVocab.getVocab())
+                        .meaning(parentVocab.getMeaning())
+                        .subTopic(savedChildSub)
+                        .status(parentVocab.getStatus())
+                        .createdAt(Instant.now())
+                        .createdBy(getCurrentUserId())
+                        .build();
+                vocabRepository.save(childVocab);
+            }
+        }
+        
+        // Clone sentences from parent to child
+        List<Sentence> parentSentences = sentenceRepository.findBySentenceTopicId(parent.getId());
+        for (Sentence parentSentence : parentSentences) {
+            Sentence childSentence = Sentence.builder()
+                    .sentenceMeaning(parentSentence.getSentenceMeaning())
+                    .sentenceDescription(parentSentence.getSentenceDescription())
+                    .sentenceVideo(parentSentence.getSentenceVideo())
+                    .sentenceTopic(child)
+                    .createdAt(Instant.now())
+                    .createdBy(getCurrentUserId())
+                    .build();
+            sentenceRepository.save(childSentence);
+        }
     }
 
     @Override
@@ -574,7 +739,10 @@ public class TopicServiceImpl implements TopicService {
         Long currentUserId = getCurrentUserId();
         child.setUpdatedBy(currentUserId);
         Topic saved = topicRepository.save(child);
-        // NOTE: Minimal implementation does not clone/update subtopics/vocabs here
+        
+        // Clone subtopics and vocabs from parent to child
+        cloneSubtopicsAndVocabs(parent, child);
+        
         return convertToTopicDetailResponse(saved);
     }
 
@@ -1055,5 +1223,19 @@ public class TopicServiceImpl implements TopicService {
         }
         
         return convertToTopicDetailResponse(savedTopic);
+    }
+
+    @Override
+    public TopicDetailResponse resolveTopic(Long topicId) {
+        // Try direct
+        Topic topic = topicRepository.findById(topicId)
+                .orElse(null);
+        if (topic == null) {
+            // If not found directly, maybe topicId is a child id that no longer exists
+            throw new RuntimeException("Topic not found with id: " + topicId);
+        }
+        // If this is a child, we may want to return its detail directly
+        // For detail purposes, just reuse getTopicDetail to assemble sub-entities
+        return getTopicDetail(topic.getId());
     }
 } 
