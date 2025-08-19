@@ -13,6 +13,8 @@ import java.util.Map;
 public interface TopicService {
     TopicListResponse getTopicList(Pageable pageable, String search, String status, Long createdBy);
     TopicDetailResponse getTopicDetail(Long topicId);
+    TopicDetailResponse getChildTopic(Long parentTopicId);
+    TopicDetailResponse resolveTopic(Long topicId);
     TopicDetailResponse createTopic(TopicCreateRequest request);
     TopicDetailResponse updateTopic(Long topicId, TopicUpdateRequest request);
     TopicDetailResponse updateTopicStatus(Long topicId, String newStatus);
@@ -50,4 +52,7 @@ public interface TopicService {
 
     // New: review history
     List<ReviewHistoryEntry> getTopicReviewHistory(Long topicId);
+    
+    // New: check duplicate topic name
+    boolean checkDuplicateTopicName(String topicName, String excludeStatus);
 } 
